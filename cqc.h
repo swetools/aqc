@@ -15,9 +15,23 @@ extern "C"
 
 #include <stdbool.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <stdlib.h>
+#include <getopt.h>
 #include <stdio.h>
+#include <assert.h>
+#include <signal.h>
 
-typedef bool (*cqc_testing_func)(size_t scale);
+typedef struct cqc_result {
+    unsigned passed;
+    unsigned failed;
+    unsigned uncertain;
+} cqc_result;
+
+typedef cqc_result (*cqc_testing_func)(void);
 
 typedef struct cqc_testcase_list {
     const char *name;
@@ -26,19 +40,13 @@ typedef struct cqc_testcase_list {
 } cqc_testcase_list;
 
 static cqc_testcase_list *cqc_first_testcase;
-static cqc_testcase_list **cqc_last_testcase;
-
-typedef struct cqc_result {
-    unsigned passed;
-    unsigned failed;
-    unsigned uncertain;
-} cqc_result;
+static cqc_testcase_list **cqc_last_testcase = &cqc_first_testcase;
 
 #define CQC_ARRAYSIZE(_array) ((sizeof(_array) / sizeof(*(_array))))
 
-static unsigned cqc_max_iter;
-static unsigned cqc_min_iter;
-static size_t cqc_scale;
+static unsigned cqc_max_iter = 1000;
+static unsigned cqc_min_iter = 100;
+static size_t cqc_scale = 100;
 static bool cqc_verbose;
 static bool cqc_debug;
 
@@ -82,8 +90,18 @@ static bool cqc_debug;
         }                                                               \
         return _cqc_state.result;                                       \
     }                                                                   \
+                                                                        \
+    static cqc_testcase_list _id##_cqc_testcase = {                     \
+        .name = _name,                                                  \
+        .test = _id                                                     \
+    };                                                                  \
+    static __attribute__((constructor)) void                            \
+    _id##_cqc_testcase_init(void)                                       \
+    {                                                                   \
+        *cqc_last_testcase = &_id##_cqc_testcase;                       \
+        cqc_last_testcase = &_id##_cqc_testcase.next;                   \
+    }                                                                   \
     struct cqc_fake
-
 
 #define cqc_forall(_type, _var, _body)                                  \
     do {                                                                \
@@ -182,6 +200,50 @@ int main(int argc, char *argv)
 {
     cqc_testcase_list *iter;
     cqc_result total = {0, 0, 0};
+    static const option options[] = {
+        {"verbose", no_argument, NULL, 'v'},
+        {"debug", no_argument, NULL, 'd'},
+        {"min", required_argument, NULL, 'm'},
+        {"limit", required_argument, NULL, 'l'},
+        {"scale", required_argument, NULL, 's'},
+        {"seed", required_argument, NULL, 'S'},
+        {NULL, no_argument, NULL, 0}
+    };
+    int opt;
+    unsigned seed;
+    struct timeval now;
+
+    gettimeofday(&now, NULL);
+    seed = now.tv_sec ^ now.tv_usec;
+    while ((opt = getopt_long(argc, argv, options, NULL)) != -1)
+    {
+        switch (opt)
+        {
+            case 'v':
+                cqc_verbose = true;
+                break;
+            case 'd':
+                cqc_debug = true;
+                break;
+            case 'm':
+                cqc_min_iter = strtoul(optarg, NULL, 10);
+                break;
+            case 'l':
+                cqc_max_iter = strtoul(optarg, NULL, 10);
+                break;
+            case 's':
+                cqc_scale = strtoul(optarg, NULL, 10);
+                break;
+            case 'S':
+                seed = strtoul(optarg, NULL, 0);
+                break;
+            default:
+                assert(0);
+        }
+    }
+    if (cqc_verbose)
+        fprintf(stderr, "Random seed is %u\n", seed);
+    srandom(seed);
 
     for (iter = cqc_first_casecase; iter != NULL; iter = iter->next)
     {
