@@ -1,14 +1,18 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -ggdb3 --coverage
-GCOV = gcov
-GCOVFLAGS = 
-SELFTEST_FLAGS = --verbose --verbose
+CFLAGS = -O3 -Wall -Wextra -Werror -ggdb3 \
+		 -fsanitize=undefined -fsanitize=address -fsanitize=leak
+SELFTEST_FLAGS = --verbose
 
 .PHONY : check
 
 check : selftest
 	./$< $(SELFTEST_FLAGS)
-	$(GCOV) $(GCOVFLAGS) $(addsuffix .o,$<)
 
-selftest : selftest.c cqc.h
+selftest : selftest.c cqc.h Makefile
 	$(CC) -o $@ $(CPPFLAGS) $(CFLAGS) $< $(LDFLAGS)
+
+.PHONY : clean
+
+clean :
+	rm -f selftest
+	rm -f *.o
