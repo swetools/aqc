@@ -36,10 +36,25 @@ CQC_TESTCASE(test_oneof,
 CQC_TESTCASE(test_scaled_int,
              "Generating an integer up to the scale", CQC_NO_CLASSES,
              cqc_forall_range(int, scale, 1, 63,
-                              cqc_forall_scaled(scale, uint64_t, v,
-                                                cqc_expect(assert(v < (1ull << scale))))));
+                              cqc_forall_scaled
+                              (scale, uint64_t, v,
+                               cqc_expect(assert(v < (1ull << scale))))));
 
 CQC_TESTCASE(test_scaled_double,
              "Generate scaled floating-point", CQC_NO_CLASSES,
              cqc_forall_scaled(35, double, v,
                                cqc_expect(isfinite(v))));
+
+CQC_TESTCASE(test_double_class,
+             "Generate double with special values",
+             CQC_FP_CLASSES,
+             cqc_forall_cc(50, double, v,
+                           cqc_classify(cqc_fp_class(v),
+                                        cqc_expect(assert(true)))));
+
+CQC_TESTCASE(test_char_class,
+             "Generate ASCII character and classify them",
+             CQC_CHAR_CLASSES,
+             cqc_forall(char, ch,
+                        cqc_classify(cqc_char_class(ch),
+                                     cqc_expect(assert(true)))));

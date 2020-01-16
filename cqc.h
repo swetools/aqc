@@ -27,6 +27,8 @@ extern "C"
 #include <inttypes.h>
 #include <limits.h>
 #include <math.h>
+#include <float.h>
+#include <ctype.h>
 
 typedef struct cqc_result {
     unsigned passed;
@@ -190,44 +192,62 @@ cqc_generate_bits(void *var, size_t bits, size_t scale)
     cqc_generate_bits(_var, 8, _scale)
 #define cqc_generate_int8_t(_var, _scale)       \
     cqc_generate_bits(_var, 8, _scale)
-#define cqc_cc_list_uint8_t 0, UINT8_MAX
-#define cqc_cc_list_int8_t 0, INT8_MAX, INT8_MIN
+#define cqc_cclist_uint8_t 0, UINT8_MAX
+#define cqc_cclist_int8_t 0, INT8_MAX, INT8_MIN
 
 #define cqc_generate_uint16_t(_var, _scale)     \
     cqc_generate_bits(_var, 16, _scale)
 #define cqc_generate_int16_t(_var, _scale)      \
     cqc_generate_bits(_var, 16, _scale)
-#define cqc_cc_list_uint16_t 0, UINT16_MAX
-#define cqc_cc_list_int16_t 0, INT16_MAX, INT16_MIN
+#define cqc_cclist_uint16_t 0, UINT16_MAX
+#define cqc_cclist_int16_t 0, INT16_MAX, INT16_MIN
 
 #define cqc_generate_uint32_t(_var, _scale)     \
     cqc_generate_bits(_var, 32, _scale)
 #define cqc_generate_int32_t(_var, _scale)      \
     cqc_generate_bits(_var, 32, _scale)
-#define cqc_cc_list_uint32_t 0, UINT32_MAX
-#define cqc_cc_list_int32_t 0, INT32_MAX, INT32_MIN
+#define cqc_cclist_uint32_t 0, UINT32_MAX
+#define cqc_cclist_int32_t 0, INT32_MAX, INT32_MIN
 
 #define cqc_generate_uint64_t(_var, _scale)     \
     cqc_generate_bits(_var, 64, _scale)
 #define cqc_generate_int64_t(_var, _scale)      \
     cqc_generate_bits(_var, 64, _scale)
-#define cqc_cc_list_uint64_t 0, UINT64_MAX
-#define cqc_cc_list_int64_t 0, INT64_MAX, INT64_MIN
+#define cqc_cclist_uint64_t 0, UINT64_MAX
+#define cqc_cclist_int64_t 0, INT64_MAX, INT64_MIN
 
 #define cqc_generate_int(_var, _scale)                      \
     cqc_generate_bits(_var, sizeof(int) * CHAR_BIT, _scale)
-#define cqc_cc_list_int 0, INT_MAX, INT_MIN
+#define cqc_cclist_int 0, INT_MAX, INT_MIN
 
 #define cqc_generate_unsigned(_var, _scale)                         \
     cqc_generate_bits(_var, sizeof(unsigned) * CHAR_BIT, _scale)
-#define cqc_cc_list_unsigned 0, UINT_MAX
+#define cqc_cclist_unsigned 0, UINT_MAX
 
 #define cqc_generate_size_t(_var, _scale)                       \
     cqc_generate_bits(_var, sizeof(size_t) * CHAR_BIT, _scale)
-#define cqc_cc_list_size_t 0, SIZE_MAX
+#define cqc_cclist_size_t 0, SIZE_MAX
 
 #define cqc_generate_char(_var, _scale)             \
     cqc_generate_bits(_var, CHAR_BIT, CHAR_BIT - 1)
+
+#define CQC_CHAR_CLASSES                                        \
+    ((const char *[]){"nongraph", "alpha", "digit", "punct"})
+
+static inline unsigned
+cqc_char_class(char c)
+{
+    if (!isgraph(c))
+        return 0;
+    if (isalpha(c))
+        return 1;
+    if (isdigit(c))
+        return 2;
+    if (ispunct(c))
+        return 3;
+    assert(0);
+    return 0;
+}
 
 static inline void
 cqc_generate_double(double *var, size_t scale)
@@ -237,8 +257,34 @@ cqc_generate_double(double *var, size_t scale)
 
     *var = ldexp(d, exp);
 }
-#define cqc_cc_list_double                                              \
-    0.0, DBL_MAX, DBL_MIN, -DBL_MAX, -DBL_MIN, INFINITY, -INFINITY, NAN
+
+#define cqc_cclist_double                                              \
+    0.0, DBL_MAX, DBL_MIN, -DBL_MAX, -DBL_MIN, DBL_MIN / 2,             \
+        INFINITY, -INFINITY, NAN
+
+#define CQC_FP_CLASSES                                                  \
+    ((const char *[]){"NaN", "infinite", "zero", "subnormal", "normal"})
+
+static inline unsigned
+cqc_fp_class(double d)
+{
+    switch (fpclassify(d))
+    {
+        case FP_NAN:
+            return 0;
+        case FP_INFINITE:
+            return 1;
+        case FP_ZERO:
+            return 2;
+        case FP_SUBNORMAL:
+            return 3;
+        case FP_NORMAL:
+            return 4;
+        default:
+            assert(0);
+            return 0;
+    }
+}
 
 #define cqc_release_uint8_t(_var) ((void)0)
 #define cqc_release_int8_t(_var) ((void)0)
@@ -279,7 +325,7 @@ cqc_generate_double(double *var, size_t scale)
 #define cqc_typefmt_size_t "%zu"
 #define cqc_typeargs_size_t(_x) (_x)
 
-#define cqc_typefmt_char "'\x%02x'"
+#define cqc_typefmt_char "'\\x%02x'"
 #define cqc_typeargs_char(_x) (_x)
 
 #define cqc_typefmt_double "%g"
