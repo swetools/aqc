@@ -53,3 +53,11 @@ dkms.conf
 
 # Backup files
 *~
+
+# GCOV
+*.gcda
+*.gcno
+*.gcov
+
+# Tests
+selftest
