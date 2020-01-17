@@ -1,7 +1,7 @@
 CC = gcc
-CFLAGS = -O3 -Wall -Wextra -Werror -ggdb3 \
+CFLAGS = -O3 -Wall -Wextra -Werror -ggdb3 -march=native \
 		 -fsanitize=undefined -fsanitize=address -fsanitize=leak
-SELFTEST_FLAGS = --verbose
+SELFTEST_FLAGS = --verbose --verbose
 
 .PHONY : check
 
