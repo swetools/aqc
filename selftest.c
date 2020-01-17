@@ -64,3 +64,10 @@ CQC_TESTCASE(test_string,
              CQC_NO_CLASSES,
              cqc_forall_cc(10, cqc_string, str,
                            cqc_expect(assert(true))));
+
+CQC_TESTCASE(test_condition,
+             "Generate an even integer",
+             CQC_NO_CLASSES,
+             cqc_forall(int, v,
+                        cqc_condition(v % 2 == 0,
+                                      cqc_expect(assert(v % 2 == 0)))));
