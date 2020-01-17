@@ -58,3 +58,9 @@ CQC_TESTCASE(test_char_class,
              cqc_forall(char, ch,
                         cqc_classify(cqc_char_class(ch),
                                      cqc_expect(assert(true)))));
+
+CQC_TESTCASE(test_string,
+             "Generate a random string",
+             CQC_NO_CLASSES,
+             cqc_forall_cc(10, cqc_string, str,
+                           cqc_expect(assert(true))));

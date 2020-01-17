@@ -29,6 +29,9 @@ extern "C"
 #include <math.h>
 #include <float.h>
 #include <ctype.h>
+#include <string.h>
+
+typedef char *cqc_string;
 
 typedef struct cqc_result {
     unsigned passed;
@@ -231,6 +234,21 @@ cqc_generate_bits(void *var, size_t bits, size_t scale)
 #define cqc_generate_char(_var, _scale)             \
     cqc_generate_bits(_var, CHAR_BIT, CHAR_BIT - 1)
 
+static inline void
+cqc_generate_cqc_string(char **str, size_t scale)
+{
+    size_t len = random() % scale;
+    size_t i;
+
+    *str = malloc(len + 1);
+    for (i = 0; i < len; i++)
+        (*str)[i] = random() % (SCHAR_MAX - 1) + 1;
+    (*str)[len] = '\0';
+}
+
+#define cqc_release_cqc_string(_var) free(*(_var))
+#define cqc_cclist_cqc_string strdup("")
+
 #define CQC_CHAR_CLASSES                                        \
     ((const char *[]){"nongraph", "alpha", "digit", "punct"})
 
@@ -331,6 +349,32 @@ cqc_fp_class(double d)
 #define cqc_typefmt_double "%g"
 #define cqc_typeargs_double(_x) (_x)
 
+#define cqc_typefmt_cqc_string "\"%s\""
+#define cqc_typeargs_cqc_string(_x) cqc_string_escape(_x)
+
+#define CQC_MAX_PRINT_STRING 16
+
+static const char *
+cqc_string_escape(const char *src)
+{
+    static char tmpbuf[4 * CQC_MAX_PRINT_STRING + 4];
+    char *iter;
+    size_t i;
+
+    for (iter = tmpbuf, i = 0; src[i] != '\0' && i < CQC_MAX_PRINT_STRING; i++)
+    {
+        if (isprint(src[i]) && src[i] != '"' && src[i] != '\\')
+            *iter++ = src[i];
+        else
+            iter += snprintf(iter, 5, "\\%03o", src[i]);
+    }
+    if (src[i] != 0)
+        strcpy(iter, "...");
+    else
+        *iter = '\0';
+    return tmpbuf;
+}
+
 #define cqc_log_value(_type, _var)                          \
     (fprintf(stderr, "[" #_var "=" cqc_typefmt_##_type "]", \
              cqc_typeargs_##_type(_var)))
@@ -338,7 +382,7 @@ cqc_fp_class(double d)
 #define cqc_list(...) __VA_ARGS__
 
 #define cqc_generate_oneof(_type, _var, ...)                            \
-    static const _type _var##_options[] = {__VA_ARGS__};                \
+    const _type _var##_options[] = {__VA_ARGS__};                \
     _var = _var##_options[random() % CQC_ARRAYSIZE(_var##_options)];    \
 
 #define cqc_generate_cc(_ratio, _scale, _type, _var)            \
