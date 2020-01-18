@@ -22,7 +22,7 @@ CQC_TESTCASE(test_boolean_class,
 
 CQC_TESTCASE_SINGLE(test_expect_fail,
              "A failing test",
-             cqc_expect_fail(assert(false)));
+                    cqc_expect_fail(cqc_assert_eq(int, 1, 2)));
 
 CQC_TESTCASE_SINGLE(test_expect_timeout,
                     "A timed out test",
@@ -63,7 +63,7 @@ CQC_TESTCASE(test_string,
              "Generate a random string",
              CQC_NO_CLASSES,
              cqc_forall_cc(10, cqc_string, str,
-                           cqc_expect(assert(true))));
+                           cqc_expect(cqc_assert_eq(cqc_string, str, str))));
 
 CQC_TESTCASE(test_condition,
              "Generate an even integer",

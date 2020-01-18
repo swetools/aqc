@@ -48,6 +48,8 @@ typedef struct cqc_testcase_list {
 } cqc_testcase_list;
 
 static cqc_testcase_list *cqc_first_testcase;
+
+__attribute__ ((unused))
 static cqc_testcase_list **cqc_last_testcase = &cqc_first_testcase;
 
 #define CQC_ARRAYSIZE(_array) ((sizeof(_array) / sizeof(*(_array))))
@@ -71,6 +73,7 @@ static bool cqc_debug;
     }                                                                   \
 
 #define CQC_TESTCASE_SINGLE(_id, _descr, _body)                         \
+    __attribute__ ((unused))                                            \
     static cqc_result                                                   \
     _id()                                                               \
     {                                                                   \
@@ -85,7 +88,7 @@ static bool cqc_debug;
                (_cqc_state.attempts++ < cqc_max_iter))                  \
         {                                                               \
             _cqc_state.failed_iter = false;                             \
-            _body;                                                      \
+            { _body; }                                                  \
         }                                                               \
         if (_cqc_state.result.passed +                                  \
             _cqc_state.result.failed < 1) {                             \
@@ -100,6 +103,7 @@ static bool cqc_debug;
     struct cqc_fake
 
 #define CQC_TESTCASE(_id, _descr, _classes, _body)                      \
+    __attribute__ ((unused))                                            \
     static cqc_result                                                   \
     _id()                                                               \
     {                                                                   \
@@ -121,7 +125,7 @@ static bool cqc_debug;
                (_cqc_state.attempts++ < cqc_max_iter))                  \
         {                                                               \
             _cqc_state.failed_iter = false;                             \
-            _body;                                                      \
+            { _body; }                                                  \
         }                                                               \
         if ((_cqc_state.classmask != _cqc_max_mask) ||                  \
             (_cqc_state.result.passed +                                 \
@@ -149,7 +153,8 @@ static bool cqc_debug;
 #define CQC_BOOL_CLASSES                        \
     ((const char *[]){"false", "true"})
 
-static inline void
+__attribute__ ((unused))
+static void
 cqc_generate__Bool(void *var, size_t scale __attribute__ ((unused)))
 {
     *(bool *)var = (random() % 2) == 0;
@@ -160,7 +165,8 @@ cqc_generate__Bool(void *var, size_t scale __attribute__ ((unused)))
 #define cqc_typefmt__Bool "%s"
 #define cqc_typeargs__Bool(_x) ((_x) ? "true" : "false")
 
-static inline void
+__attribute__ ((unused))
+static void
 cqc_generate_bits(void *var, size_t bits, size_t scale)
 {
     uint64_t r = 0;
@@ -234,7 +240,8 @@ cqc_generate_bits(void *var, size_t bits, size_t scale)
 #define cqc_generate_char(_var, _scale)             \
     cqc_generate_bits(_var, CHAR_BIT, CHAR_BIT - 1)
 
-static inline void
+__attribute__ ((unused))
+static void
 cqc_generate_cqc_string(char **str, size_t scale)
 {
     size_t len = random() % scale;
@@ -267,7 +274,8 @@ cqc_char_class(char c)
     return 0;
 }
 
-static inline void
+__attribute__ ((unused))
+static void
 cqc_generate_double(double *var, size_t scale)
 {
     int exp = random() % (2 * scale) - scale;
@@ -318,6 +326,20 @@ cqc_fp_class(double d)
 #define cqc_release_char(_var) ((void)0)
 #define cqc_release_double(_var) ((void)0)
 
+#define cqc_equal_uint8_t(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_int8_t(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_uint16_t(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_int16_t(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_uint32_t(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_int32_t(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_uint64_t(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_int64_t(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_int(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_unsigned(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_size_t(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_char(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_double(_v1, _v2) ((_v1) == (_v2))
+
 #define cqc_typefmt_uint8_t "%" PRIu8
 #define cqc_typeargs_uint8_t(_x) (_x)
 #define cqc_typefmt_uint16_t "%" PRIu16
@@ -349,11 +371,15 @@ cqc_fp_class(double d)
 #define cqc_typefmt_double "%g"
 #define cqc_typeargs_double(_x) (_x)
 
+#define cqc_equal_cqc_string(_v1, _v2) \
+    (strcmp((_v1), (_v2)) == 0)
+
 #define cqc_typefmt_cqc_string "\"%s\""
 #define cqc_typeargs_cqc_string(_x) cqc_string_escape(_x)
 
 #define CQC_MAX_PRINT_STRING 16
 
+__attribute__ ((unused))
 static const char *
 cqc_string_escape(const char *src)
 {
@@ -510,6 +536,19 @@ cqc_string_escape(const char *src)
 
 #define cqc_log(_fmt, ...)                          \
           fprintf(stderr, _fmt "\n", __VA_ARGS__)
+
+#define cqc_assert(_expr) assert(_expr)
+
+#define cqc_assert_eq(_type, _v1, _v2)                                  \
+    do {                                                                \
+        if (!cqc_equal_##_type(_v1, _v2))                               \
+        {                                                               \
+            cqc_log("Assertion " #_v1 " == " #_v2 " failed: expected "  \
+                    cqc_typefmt_##_type ", got " cqc_typefmt_##_type,   \
+                    cqc_typeargs_##_type(_v1), cqc_typeargs_##_type(_v2)); \
+            abort();                                                    \
+        }                                                               \
+    } while (0)
 
 int main(int argc, char *argv[])
 {
