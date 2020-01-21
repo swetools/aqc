@@ -32,6 +32,7 @@ extern "C"
 #include <string.h>
 
 typedef char *cqc_string;
+typedef const void *cqc_opaque;
 
 typedef struct cqc_result {
     unsigned passed;
@@ -150,8 +151,9 @@ static bool cqc_debug;
     struct cqc_fake
 
 #define CQC_NO_CLASSES ((const char *[]){""})
-#define CQC_BOOL_CLASSES                        \
-    ((const char *[]){"false", "true"})
+#define CQC_CLASS_LIST(...)                     \
+    ((const char *[]){__VA_ARGS__})
+#define CQC_BOOL_CLASSES CQC_CLASS_LIST("false", "true")
 
 __attribute__ ((unused))
 static void
@@ -256,8 +258,8 @@ cqc_generate_cqc_string(char **str, size_t scale)
 #define cqc_release_cqc_string(_var) free(*(_var))
 #define cqc_cclist_cqc_string strdup("")
 
-#define CQC_CHAR_CLASSES                                        \
-    ((const char *[]){"nongraph", "alpha", "digit", "punct"})
+#define CQC_CHAR_CLASSES                                    \
+    CQC_CLASS_LIST("nongraph", "alpha", "digit", "punct")
 
 static inline unsigned
 cqc_char_class(char c)
@@ -289,7 +291,7 @@ cqc_generate_double(double *var, size_t scale)
         INFINITY, -INFINITY, NAN
 
 #define CQC_FP_CLASSES                                                  \
-    ((const char *[]){"NaN", "infinite", "zero", "subnormal", "normal"})
+    CQC_CLASS_LIST("NaN", "infinite", "zero", "subnormal", "normal")
 
 static inline unsigned
 cqc_fp_class(double d)
@@ -376,6 +378,11 @@ cqc_fp_class(double d)
 
 #define cqc_typefmt_cqc_string "\"%s\""
 #define cqc_typeargs_cqc_string(_x) cqc_string_escape(_x)
+
+#define cqc_equal_cqc_opaque(_v1, _v2) ((_v1) == (_v2))
+
+#define cqc_typefmt_cqc_opaque "%p"
+#define cqc_typeargs_cqc_opaque(_x) (_x)
 
 #define CQC_MAX_PRINT_STRING 16
 
@@ -464,6 +471,9 @@ cqc_string_escape(const char *src)
         }                           \
     } while (0)
 
+#define cqc_condition_neq(_type, _v1, _v2, _body)       \
+    cqc_condition(!cqc_equal_##_type(_v1, _v2), _body)
+
 #define cqc_classify(_classifier, _body)                        \
     do {                                                        \
         unsigned _cqc_cls = (_classifier);                      \
@@ -541,13 +551,48 @@ cqc_string_escape(const char *src)
 
 #define cqc_assert_eq(_type, _v1, _v2)                                  \
     do {                                                                \
-        if (!cqc_equal_##_type(_v1, _v2))                               \
+        _type __v1 = (_v1);                                             \
+        _type __v2 = (_v2);                                             \
+        if (!cqc_equal_##_type(__v1, __v2))                             \
         {                                                               \
             cqc_log("Assertion " #_v1 " == " #_v2 " failed: expected "  \
                     cqc_typefmt_##_type ", got " cqc_typefmt_##_type,   \
-                    cqc_typeargs_##_type(_v1), cqc_typeargs_##_type(_v2)); \
+                    cqc_typeargs_##_type(__v1), cqc_typeargs_##_type(__v2)); \
             abort();                                                    \
         }                                                               \
+    } while (0)
+
+#define cqc_assert_neq(_type, _v1, _v2)                                 \
+    do {                                                                \
+        _type __v1 = (_v1);                                             \
+        _type __v2 = (_v2);                                             \
+        if (cqc_equal_##_type(__v1, __v2))                              \
+        {                                                               \
+            cqc_log("Assertion " #_v1 " != " #_v2 " failed: both are "  \
+                    cqc_typefmt_##_type,                                \
+                    cqc_typeargs_##_type(__v1));                        \
+            abort();                                                    \
+        }                                                               \
+    } while (0)
+
+
+#define cqc_assert_eqn(_type, _n1, _v1, _n2, _v2)           \
+    do {                                                    \
+        unsigned __i;                                       \
+        cqc_assert_eq(unsigned, _n1, _n2);                  \
+        for (__i = 0; __i < (_n1); __i++)                   \
+        {                                                   \
+            cqc_assert_eq(_type, (_v1)[__i], (_v2)[__i]);   \
+        }                                                   \
+    } while (0)
+
+#define cqc_assert_eqfn(_type, _n, _v, _f,  _c)             \
+    do {                                                    \
+        unsigned __i;                                       \
+        for (__i = 0; __i < (_n); __i++)                    \
+        {                                                   \
+            cqc_assert_eq(_type, ((_v)[__i]) _f, (_c));    \
+        }                                                   \
     } while (0)
 
 int main(int argc, char *argv[])
