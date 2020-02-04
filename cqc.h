@@ -43,6 +43,7 @@ typedef struct cqc_result {
 typedef cqc_result (*cqc_testing_func)(void);
 
 typedef struct cqc_testcase_list {
+    const char *id;
     const char *name;
     cqc_testing_func test;
     struct cqc_testcase_list *next;
@@ -63,6 +64,7 @@ static bool cqc_debug;
 
 #define CQC_TESTCASE_INIT(_descr, _id)          \
     static cqc_testcase_list _id##_cqc_testcase = {                     \
+        .id = #_id,                                                     \
         .name = _descr,                                                 \
         .test = _id                                                     \
     };                                                                  \
@@ -239,6 +241,10 @@ cqc_generate_bits(void *var, size_t bits, size_t scale)
     cqc_generate_bits(_var, sizeof(size_t) * CHAR_BIT, _scale)
 #define cqc_cclist_size_t 0, SIZE_MAX
 
+#define cqc_generate_uintptr_t(_var, _scale)                        \
+    cqc_generate_bits(_var, sizeof(uintptr_t) * CHAR_BIT, _scale)
+#define cqc_cclist_uintptr_t 0, UINTPTR_MAX
+
 #define cqc_generate_char(_var, _scale)             \
     cqc_generate_bits(_var, CHAR_BIT, CHAR_BIT - 1)
 
@@ -325,6 +331,7 @@ cqc_fp_class(double d)
 #define cqc_release_int(_var) ((void)0)
 #define cqc_release_unsigned(_var) ((void)0)
 #define cqc_release_size_t(_var) ((void)0)
+#define cqc_release_uintptr_t(_var) ((void)0)
 #define cqc_release_char(_var) ((void)0)
 #define cqc_release_double(_var) ((void)0)
 
@@ -339,6 +346,7 @@ cqc_fp_class(double d)
 #define cqc_equal_int(_v1, _v2) ((_v1) == (_v2))
 #define cqc_equal_unsigned(_v1, _v2) ((_v1) == (_v2))
 #define cqc_equal_size_t(_v1, _v2) ((_v1) == (_v2))
+#define cqc_equal_uintptr_t(_v1, _v2) ((_v1) == (_v2))
 #define cqc_equal_char(_v1, _v2) ((_v1) == (_v2))
 #define cqc_equal_double(_v1, _v2) ((_v1) == (_v2))
 
@@ -366,6 +374,8 @@ cqc_fp_class(double d)
 #define cqc_typeargs_unsigned(_x) (_x)
 #define cqc_typefmt_size_t "%zu"
 #define cqc_typeargs_size_t(_x) (_x)
+#define cqc_typefmt_uintptr_t "%" PRIxPTR
+#define cqc_typeargs_uintptr_t(_x) (_x)
 
 #define cqc_typefmt_char "'\\x%02x'"
 #define cqc_typeargs_char(_x) (_x)
@@ -606,6 +616,7 @@ int main(int argc, char *argv[])
         {"limit", required_argument, NULL, 'l'},
         {"scale", required_argument, NULL, 's'},
         {"seed", required_argument, NULL, 'S'},
+        {"list", no_argument, NULL, 't'},
         {NULL, no_argument, NULL, 0}
     };
     int opt;
@@ -636,8 +647,16 @@ int main(int argc, char *argv[])
             case 'S':
                 seed = strtoul(optarg, NULL, 0);
                 break;
+            case 't':
+            {
+                for (iter = cqc_first_testcase; iter != NULL; iter = iter->next)
+                {
+                    printf("%s %s\n", iter->id, iter->name);
+                }
+                return 0;
+            }
             default:
-                assert(0);
+                return EXIT_FAILURE;
         }
     }
     if (cqc_verbose > 0)
@@ -647,6 +666,10 @@ int main(int argc, char *argv[])
     for (iter = cqc_first_testcase; iter != NULL; iter = iter->next)
     {
         cqc_result current;
+
+        if (optind < argc && strcmp(iter->id, argv[optind]) != 0)
+            continue;
+
         fprintf(stderr, "%s ", iter->name);
         current = iter->test();
         total.passed += current.passed;
@@ -665,7 +688,7 @@ int main(int argc, char *argv[])
         fputs("No tests have been run!!!\n", stderr);
         return EXIT_FAILURE;
     }
-    fprintf(stderr, "%u/%u tests failed, %u uncertain testcases\n",
+    fprintf(stderr, "Failed %u of %u tests, %u uncertain testcases\n",
             total.failed, total.passed + total.failed,
             total.uncertain);
 
