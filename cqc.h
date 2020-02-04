@@ -75,74 +75,48 @@ static bool cqc_debug;
         cqc_last_testcase = &_id##_cqc_testcase.next;                   \
     }                                                                   \
 
-#define CQC_TESTCASE_SINGLE(_id, _descr, _body)                         \
-    __attribute__ ((unused))                                            \
-    static cqc_result                                                   \
-    _id()                                                               \
-    {                                                                   \
-        struct {                                                        \
-            unsigned attempts;                                          \
-            cqc_result result;                                          \
-            bool failed_iter;                                           \
-        } _cqc_state = {.attempts = 0 };                                \
-                                                                        \
-        while ((_cqc_state.result.passed +                              \
-                _cqc_state.result.failed < 1) &&                        \
-               (_cqc_state.attempts++ < cqc_max_iter))                  \
-        {                                                               \
-            _cqc_state.failed_iter = false;                             \
-            { _body; }                                                  \
-        }                                                               \
-        if (_cqc_state.result.passed +                                  \
-            _cqc_state.result.failed < 1) {                             \
-            fprintf(stderr, " Arguments exhausted after %u attempts! ", \
-                    _cqc_state.attempts);                               \
-            _cqc_state.result.uncertain = 1;                            \
-        }                                                               \
-        return _cqc_state.result;                                       \
-    }                                                                   \
-                                                                        \
-    CQC_TESTCASE_INIT(_descr, _id);                                     \
-    struct cqc_fake
+#define CQC_MAX_CLASSES (sizeof(uint64_t) * CHAR_BIT - 1)
 
-#define CQC_TESTCASE(_id, _descr, _classes, _body)                      \
+typedef struct cqc_test_state {
+    unsigned attempts;
+    cqc_result result;
+    bool failure;
+    uint64_t observed_classes;
+    unsigned class_distr[CQC_MAX_CLASSES];
+} cqc_test_state;
+
+#define CQC_TESTCASE_MIN(_id, _descr, _min, _classes, _body)            \
     __attribute__ ((unused))                                            \
     static cqc_result                                                   \
     _id()                                                               \
     {                                                                   \
         static const char *_cqc_classes[] = _classes;                   \
-        static const unsigned _cqc_max_mask =                           \
+        static const unsigned _cqc_all_observed =                       \
             ((1u << CQC_ARRAYSIZE(_cqc_classes)) - 1);                  \
-        struct {                                                        \
-            unsigned classcnt[CQC_ARRAYSIZE(_cqc_classes)];             \
-            uint64_t classmask;                                         \
-            unsigned attempts;                                          \
-            cqc_result result;                                          \
-            bool failed_iter;                                           \
-        } _cqc_state = {.attempts = 0,                                  \
-                        .classmask = _cqc_max_mask == 1 ? 1 : 0};       \
+        cqc_test_state  _cqc_state =                                    \
+            {.attempts = 0,                                             \
+             .observed_classes = _cqc_all_observed == 1 ? 1 : 0};       \
                                                                         \
-        while (((_cqc_state.classmask != _cqc_max_mask) ||              \
+        while (((_cqc_state.observed_classes != _cqc_all_observed) ||   \
                 (_cqc_state.result.passed +                             \
-                _cqc_state.result.failed < cqc_min_iter)) &&            \
+                 _cqc_state.result.failed < (_min))) &&                 \
                (_cqc_state.attempts++ < cqc_max_iter))                  \
         {                                                               \
-            _cqc_state.failed_iter = false;                             \
+            _cqc_state.failure = false;                                 \
             { _body; }                                                  \
         }                                                               \
-        if ((_cqc_state.classmask != _cqc_max_mask) ||                  \
-            (_cqc_state.result.passed +                                 \
-             _cqc_state.result.failed < cqc_min_iter)) {                \
+        if (_cqc_state.attempts > cqc_max_iter)                         \
+        {                                                               \
             fprintf(stderr, " Arguments exhausted after %u attempts! ", \
                     _cqc_state.attempts);                               \
             _cqc_state.result.uncertain = 1;                            \
         }                                                               \
-        if (_cqc_max_mask != 1 && cqc_verbose > 0)                      \
+        if (_cqc_all_observed != 1 && cqc_verbose > 0)                  \
         {                                                               \
             unsigned i;                                                 \
             for (i = 0; i < CQC_ARRAYSIZE(_cqc_classes); i++)           \
             {                                                           \
-                fprintf(stderr, " [%u %s]", _cqc_state.classcnt[i],     \
+                fprintf(stderr, " [%u %s]", _cqc_state.class_distr[i],  \
                         _cqc_classes[i]);                               \
             }                                                           \
         }                                                               \
@@ -156,6 +130,12 @@ static bool cqc_debug;
 #define CQC_CLASS_LIST(...)                     \
     ((const char *[]){__VA_ARGS__})
 #define CQC_BOOL_CLASSES CQC_CLASS_LIST("false", "true")
+
+#define CQC_TESTCASE_SINGLE(_id, _descr, _body)             \
+    CQC_TESTCASE_MIN(_id, _descr, 1, CQC_NO_CLASSES, _body)
+
+#define CQC_TESTCASE(_id, _desc, _classes, _body)                   \
+    CQC_TESTCASE_MIN(_id, _descr, cqc_min_iter, _classes, _body)
 
 __attribute__ ((unused))
 static void
@@ -463,8 +443,8 @@ cqc_string_escape(const char *src)
     cqc_forall_gen(cqc_generate_oneof(_type, _var, _opts),              \
                    _type, _var, _body)
 
-#define cqc_forall_range(_type, _var, _min, _max, _body)            \
-    cqc_forall_gen(_var = random() % ((_max) - (_min) + 1) + _min,  \
+#define cqc_forall_range(_type, _var, _min, _max, _body)                \
+    cqc_forall_gen(_var = random() % ((_max) - (_min) + 1) + (_min),    \
                    _type, _var, _body)
 
 #define cqc_forall(_type, _var, _body)                  \
