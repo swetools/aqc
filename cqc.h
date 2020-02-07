@@ -34,18 +34,21 @@ extern "C"
 typedef char *cqc_string;
 typedef const void *cqc_opaque;
 
-typedef struct cqc_result {
-    unsigned passed;
-    unsigned failed;
-    unsigned uncertain;
+typedef enum cqc_result {
+    CQC_RESULT_DEFINITELY_PASSED,
+    CQC_RESULT_PASSED,
+    CQC_RESULT_PARTIALLY_PASSED,
+    CQC_RESULT_FAILED,
+    CQC_RESULT_CRASHED,
+    CQC_RESULT_SKIPPED,
 } cqc_result;
 
-typedef cqc_result (*cqc_testing_func)(void);
+typedef void cqc_testing_func(cqc_result *);
 
 typedef struct cqc_testcase_list {
     const char *id;
     const char *name;
-    cqc_testing_func test;
+    cqc_testing_func *test;
     struct cqc_testcase_list *next;
 } cqc_testcase_list;
 
@@ -62,80 +65,22 @@ static size_t cqc_scale = 100;
 static unsigned cqc_verbose;
 static bool cqc_debug;
 
-#define CQC_TESTCASE_INIT(_descr, _id)          \
-    static cqc_testcase_list _id##_cqc_testcase = {                     \
+#define CQC_TESTCASE(_id, _descr)                                       \
+    static cqc_testing_func cqc_testfunc_##_id;                         \
+    static cqc_testcase_list cqc_testcase_##_id = {                     \
         .id = #_id,                                                     \
         .name = _descr,                                                 \
-        .test = _id                                                     \
+        .test = cqc_testfunc_##_id                                      \
     };                                                                  \
     static __attribute__((constructor)) void                            \
-    _id##_cqc_testcase_init(void)                                       \
+    cqc_testcase_init_##_id(void)                                       \
     {                                                                   \
-        *cqc_last_testcase = &_id##_cqc_testcase;                       \
-        cqc_last_testcase = &_id##_cqc_testcase.next;                   \
+        *cqc_last_testcase = &cqc_testcase_##_id;                       \
+        cqc_last_testcase = &cqc_testcase_##_id.next;                   \
     }                                                                   \
-
-#define CQC_MAX_CLASSES (sizeof(uint64_t) * CHAR_BIT - 1)
-
-typedef struct cqc_test_state {
-    unsigned attempts;
-    cqc_result result;
-    bool failure;
-    uint64_t observed_classes;
-    unsigned class_distr[CQC_MAX_CLASSES];
-} cqc_test_state;
-
-#define CQC_TESTCASE_MIN(_id, _descr, _min, _classes, _body)            \
+                                                                        \
     __attribute__ ((unused))                                            \
-    static cqc_result                                                   \
-    _id()                                                               \
-    {                                                                   \
-        static const char *_cqc_classes[] = _classes;                   \
-        static const unsigned _cqc_all_observed =                       \
-            ((1u << CQC_ARRAYSIZE(_cqc_classes)) - 1);                  \
-        cqc_test_state  _cqc_state =                                    \
-            {.attempts = 0,                                             \
-             .observed_classes = _cqc_all_observed == 1 ? 1 : 0};       \
-                                                                        \
-        while (((_cqc_state.observed_classes != _cqc_all_observed) ||   \
-                (_cqc_state.result.passed +                             \
-                 _cqc_state.result.failed < (_min))) &&                 \
-               (_cqc_state.attempts++ < cqc_max_iter))                  \
-        {                                                               \
-            _cqc_state.failure = false;                                 \
-            { _body; }                                                  \
-        }                                                               \
-        if (_cqc_state.attempts > cqc_max_iter)                         \
-        {                                                               \
-            fprintf(stderr, " Arguments exhausted after %u attempts! ", \
-                    _cqc_state.attempts);                               \
-            _cqc_state.result.uncertain = 1;                            \
-        }                                                               \
-        if (_cqc_all_observed != 1 && cqc_verbose > 0)                  \
-        {                                                               \
-            unsigned i;                                                 \
-            for (i = 0; i < CQC_ARRAYSIZE(_cqc_classes); i++)           \
-            {                                                           \
-                fprintf(stderr, " [%u %s]", _cqc_state.class_distr[i],  \
-                        _cqc_classes[i]);                               \
-            }                                                           \
-        }                                                               \
-        return _cqc_state.result;                                       \
-    }                                                                   \
-                                                                        \
-    CQC_TESTCASE_INIT(_descr, _id);                                     \
-    struct cqc_fake
-
-#define CQC_NO_CLASSES ((const char *[]){""})
-#define CQC_CLASS_LIST(...)                     \
-    ((const char *[]){__VA_ARGS__})
-#define CQC_BOOL_CLASSES CQC_CLASS_LIST("false", "true")
-
-#define CQC_TESTCASE_SINGLE(_id, _descr, _body)             \
-    CQC_TESTCASE_MIN(_id, _descr, 1, CQC_NO_CLASSES, _body)
-
-#define CQC_TESTCASE(_id, _desc, _classes, _body)                   \
-    CQC_TESTCASE_MIN(_id, _descr, cqc_min_iter, _classes, _body)
+    static void cqc_testfunc_##_id(cqc_result *_cqc_result)
 
 __attribute__ ((unused))
 static void
@@ -185,45 +130,45 @@ cqc_generate_bits(void *var, size_t bits, size_t scale)
     cqc_generate_bits(_var, 8, _scale)
 #define cqc_generate_int8_t(_var, _scale)       \
     cqc_generate_bits(_var, 8, _scale)
-#define cqc_cclist_uint8_t 0, UINT8_MAX
-#define cqc_cclist_int8_t 0, INT8_MAX, INT8_MIN
+#define cqc_uint8_t_bounds 0, UINT8_MAX
+#define cqc_int8_t_bounds 0, INT8_MAX, INT8_MIN
 
 #define cqc_generate_uint16_t(_var, _scale)     \
     cqc_generate_bits(_var, 16, _scale)
 #define cqc_generate_int16_t(_var, _scale)      \
     cqc_generate_bits(_var, 16, _scale)
-#define cqc_cclist_uint16_t 0, UINT16_MAX
-#define cqc_cclist_int16_t 0, INT16_MAX, INT16_MIN
+#define cqc_uint16_t_bounds 0, UINT16_MAX
+#define cqc_int16_t_bounds 0, INT16_MAX, INT16_MIN
 
 #define cqc_generate_uint32_t(_var, _scale)     \
     cqc_generate_bits(_var, 32, _scale)
 #define cqc_generate_int32_t(_var, _scale)      \
     cqc_generate_bits(_var, 32, _scale)
-#define cqc_cclist_uint32_t 0, UINT32_MAX
-#define cqc_cclist_int32_t 0, INT32_MAX, INT32_MIN
+#define cqc_uint32_t_bounds 0, UINT32_MAX
+#define cqc_int32_t_bounds 0, INT32_MAX, INT32_MIN
 
 #define cqc_generate_uint64_t(_var, _scale)     \
     cqc_generate_bits(_var, 64, _scale)
 #define cqc_generate_int64_t(_var, _scale)      \
     cqc_generate_bits(_var, 64, _scale)
-#define cqc_cclist_uint64_t 0, UINT64_MAX
-#define cqc_cclist_int64_t 0, INT64_MAX, INT64_MIN
+#define cqc_uint64_t_bounds 0, UINT64_MAX
+#define cqc_int64_t_bounds 0, INT64_MAX, INT64_MIN
 
 #define cqc_generate_int(_var, _scale)                      \
     cqc_generate_bits(_var, sizeof(int) * CHAR_BIT, _scale)
-#define cqc_cclist_int 0, INT_MAX, INT_MIN
+#define cqc_int_bounds 0, INT_MAX, INT_MIN
 
 #define cqc_generate_unsigned(_var, _scale)                         \
     cqc_generate_bits(_var, sizeof(unsigned) * CHAR_BIT, _scale)
-#define cqc_cclist_unsigned 0, UINT_MAX
+#define cqc_unsigned_bounds 0, UINT_MAX
 
 #define cqc_generate_size_t(_var, _scale)                       \
     cqc_generate_bits(_var, sizeof(size_t) * CHAR_BIT, _scale)
-#define cqc_cclist_size_t 0, SIZE_MAX
+#define cqc_size_t_bounds 0, SIZE_MAX
 
 #define cqc_generate_uintptr_t(_var, _scale)                        \
     cqc_generate_bits(_var, sizeof(uintptr_t) * CHAR_BIT, _scale)
-#define cqc_cclist_uintptr_t 0, UINTPTR_MAX
+#define cqc_uintptr_t_bounds 0, UINTPTR_MAX
 
 #define cqc_generate_char(_var, _scale)             \
     cqc_generate_bits(_var, CHAR_BIT, CHAR_BIT - 1)
@@ -242,10 +187,6 @@ cqc_generate_cqc_string(char **str, size_t scale)
 }
 
 #define cqc_release_cqc_string(_var) free(*(_var))
-#define cqc_cclist_cqc_string strdup("")
-
-#define CQC_CHAR_CLASSES                                    \
-    CQC_CLASS_LIST("nongraph", "alpha", "digit", "punct")
 
 static inline unsigned
 cqc_char_class(char c)
@@ -271,13 +212,6 @@ cqc_generate_double(double *var, size_t scale)
 
     *var = ldexp(d, exp);
 }
-
-#define cqc_cclist_double                                              \
-    0.0, DBL_MAX, DBL_MIN, -DBL_MAX, -DBL_MIN, DBL_MIN / 2,             \
-        INFINITY, -INFINITY, NAN
-
-#define CQC_FP_CLASSES                                                  \
-    CQC_CLASS_LIST("NaN", "infinite", "zero", "subnormal", "normal")
 
 static inline unsigned
 cqc_fp_class(double d)
@@ -402,137 +336,172 @@ cqc_string_escape(const char *src)
     (fprintf(stderr, "[" #_var "=" cqc_typefmt_##_type "]", \
              cqc_typeargs_##_type(_var)))
 
-#define cqc_list(...) __VA_ARGS__
-
 #define cqc_generate_oneof(_type, _var, ...)                            \
-    const _type _var##_options[] = {__VA_ARGS__};                \
+    const _type _var##_options[] = {__VA_ARGS__};                       \
     _var = _var##_options[random() % CQC_ARRAYSIZE(_var##_options)];    \
 
-#define cqc_generate_cc(_ratio, _scale, _type, _var)            \
-    if (random() % 100 < (_ratio))                              \
-    {                                                           \
-        cqc_generate_oneof(_type, _var, cqc_cclist_##_type);    \
-    }                                                           \
-    else                                                        \
-    {                                                           \
-        cqc_generate_##_type(&_var, _scale);                    \
+#define cqc_generate_oneof_or_type(_type, _var, _ratio, _scale, ...)    \
+    bool cqc_need_clean_##_var;                                         \
+    if (random() % 100 < (_ratio))                                      \
+    {                                                                   \
+        cqc_generate_oneof(_type, _var, __VA_ARGS__);                   \
+        cqc_need_clean_##_var = false;                                  \
+    }                                                                   \
+    else                                                                \
+    {                                                                   \
+        cqc_generate_##_type(&_var, _scale);                            \
+        cqc_need_clean_##_var = true;                                   \
     }
 
-#define cqc_forall_gen(_gen, _type, _var, _body)                        \
-    do {                                                                \
-        _type _var;                                                     \
+#define cqc_forall_gen(_type, _var, _gen, _clean)                       \
+    _type _var;                                                         \
+    bool cqc_guard_##_var;                                              \
+    _gen;                                                               \
+    if (cqc_verbose > 1)                                                \
+        cqc_log_value(_type, _var);                                     \
+    for (cqc_guard_##_var = true;                                       \
+         cqc_guard_##_var;                                              \
+         cqc_guard_##_var = false,                                      \
+             (void)(cqc_verbose == 1 &&                                 \
+                    (*_cqc_result == CQC_RESULT_FAILED ||               \
+                     *_cqc_result == CQC_RESULT_CRASHED) ?              \
+                    cqc_log_value(_type, _var) : 0),                    \
+             (_clean))
+
+
+#define cqc_forall_scaled(_type, _var, _scale)                          \
+    cqc_forall_gen(_type, _var, cqc_generate_##_type(&_var, _scale),    \
+                   cqc_release_##_type(&_var))
+
+#define cqc_forall_oneof(_type, _var, ...)                              \
+    cqc_forall_gen(_type, _var,                                         \
+                   cqc_generate_oneof(_type, _var, __VA_ARGS__),        \
+                   ((void)0))
+
+#define cqc_forall_oneof_or_scaled(_type, _var, _ratio, _scale, ...)    \
+    cqc_forall_gen(_type, _var,                                         \
+                   cqc_generate_oneof_or_scaled(_type, _var,            \
+                                                _ratio, _scale,         \
+                                                __VA_ARGS__),           \
+                   (cqc_need_clean_##_var ?                             \
+                    cqc_release_##_type(&_var) :                        \
+                    ((void)0)))
+
+#define cqc_forall_range(_type, _var, _min, _max)                       \
+    cqc_forall_gen(_type, _var,                                         \
+                   _var = random() % ((_max) - (_min) + 1) + (_min),    \
+                   ((void)0))
+
+#define cqc_forall(_type, _var)                 \
+    cqc_forall_scaled(_type, _var, cqc_scale)
+
+#define cqc_forall_oneof_or_type(_type, _var, _ratio, ...)              \
+    cqc_forall_oneof_or_scaled(_type, _var, _ratio, cqc_scale, __VA_ARGS__)
+
+#define cqc_condition(_cond)                    \
+    if (!(_cond))                               \
+        *_cqc_result = CQC_RESULT_SKIPPED;      \
+    else
+
+#define cqc_condition_neq(_type, _v1, _v2)              \
+    cqc_condition(!cqc_equal_##_type(_v1, _v2))
+
+__attribute__ ((unused))
+static void
+cqc_log_class_stat(size_t n, const char *const classes[],
+                   const unsigned counts[])
+{
+    size_t i;
+    unsigned total;
+
+    for (i = 0, total = 0; i < n; i++)
+        total += counts[i];
+
+    for (i = 0; i < n; i++)
+    {
+        if (counts[i] > 0)
+        {
+            fprintf(stderr, " [%s %.2f%%]",
+                    classes[i], (double)counts[i] / total);
+        }
+    }
+}
+
+#define cqc_classify(_clsvar, _classifier, ...)                         \
+    static const char *const cqc_classes_##_clsvar[] = {__VA_ARGS__};   \
+    static uint64_t cqc_observed_##_clsvar;                             \
+    static unsigned cqc_classcnt_##_clsvar                              \
+    [CQC_ARRAYSIZE(cqc_classes_##_clsvar)];                             \
+    bool cqc_guard_##_clsvar;                                           \
+    unsigned _clsvar;                                                   \
+    _classifier;                                                        \
+    assert(_clsvar < CQC_ARRAYSIZE(cqc_classes_##_clsvar));             \
+    cqc_classcnt_##_clsvar[_classcnt]++;                                \
+    cqc_observed_##_clsvar |= 1ull << _clsvar;                          \
+    *_cqc_result = (cqc_observed_##_clsvar ==                           \
+                    (1ull << CQC_ARRAYSIZE(cqc_classes_##_clsvar)) - 1) ? \
+        CQC_RESULT_PASSED : CQC_RESULT_PARTIALLY_PASSED;                \
+    for (cqc_guard_##_var = true;                                       \
+         cqc_guard_##_var;                                              \
+         cqc_guard_##_var = false,                                      \
+             (*_cqc_result == CQC_RESULT_PASSED && cqc_verbose > 0 ?    \
+              cqc_log_class_stats(CQC_ARRAYSIZE(cqc_classes_##_clsvar), \
+                                  cqc_classes_##_clsvar,                \
+                                  cqc_classcnt_##_clsvar : (void)0),    \
+              (void)(cqc_verbose > 0 &&                                 \
+                     (*_cqc_result == CQC_RESULT_FAILED ||              \
+                      *_cqc_result == CQC_RESULT_CRASHED) ?             \
+                     fprintf(stderr, " [%s]",                           \
+                             cqc_classes_##_clsvar[_clsvar]) :          \
+                     0))                                                \
+
+#define cqc_once                                \
+    *_cqc_result = CQC_RESULT_FORCE_COMPLETE
+
+#define cqc_expect_generic(_isok, _isfail, _setup)                      \
+    pid_t _cqc_pid;                                                     \
                                                                         \
-        _gen;                                                           \
-        if (cqc_verbose > 1)                                            \
-            cqc_log_value(_type, _var);                                 \
-        _body;                                                          \
-        if (cqc_verbose == 1 && _cqc_state.failed_iter)                 \
-            cqc_log_value(_type, _var);                                 \
-        cqc_release_##_type(&_var);                                     \
-    } while (0)
-
-
-#define cqc_forall_scaled(_scale, _type, _var, _body)                   \
-    cqc_forall_gen(cqc_generate_##_type(&_var, _scale), _type, _var, _body)
-
-#define cqc_forall_cc_scaled(_ratio, _scale, _type, _var, _body)   \
-    cqc_forall_gen(cqc_generate_cc(_ratio, _scale, _type, _var),   \
-                   _type, _var, _body)
-
-#define cqc_forall_oneof(_type, _var, _opts, _body)                     \
-    cqc_forall_gen(cqc_generate_oneof(_type, _var, _opts),              \
-                   _type, _var, _body)
-
-#define cqc_forall_range(_type, _var, _min, _max, _body)                \
-    cqc_forall_gen(_var = random() % ((_max) - (_min) + 1) + (_min),    \
-                   _type, _var, _body)
-
-#define cqc_forall(_type, _var, _body)                  \
-    cqc_forall_scaled(cqc_scale, _type, _var, _body)
-
-#define cqc_forall_cc(_ratio, _type, _var, _body)               \
-    cqc_forall_cc_scaled(_ratio, cqc_scale, _type, _var, _body)
-
-#define cqc_condition(_cond, _body) \
-    do {                            \
-        if ((_cond))                \
-        {                           \
-            _body;                  \
-        }                           \
-    } while (0)
-
-#define cqc_condition_neq(_type, _v1, _v2, _body)       \
-    cqc_condition(!cqc_equal_##_type(_v1, _v2), _body)
-
-#define cqc_classify(_classifier, _body)                        \
-    do {                                                        \
-        unsigned _cqc_cls = (_classifier);                      \
-        assert(_cqc_cls < CQC_ARRAYSIZE(_cqc_classes));         \
-        _cqc_state.classmask |= (1u << _cqc_cls);               \
-        _cqc_state.classcnt[_cqc_cls]++;                        \
-        _body;                                                  \
-        if (cqc_verbose > 0 && _cqc_state.failed_iter)              \
-            fprintf(stderr, "[%s]", _cqc_classes[_cqc_cls]);    \
-    } while (0)
-
-#define cqc_scale(_scaler, _body)               \
-    do {                                        \
-        size_t _cqc_newscale = (_scaler);       \
-        {                                       \
-            size_t cqc_scale = _cqc_newscale;   \
-            _body;                              \
-        }                                       \
-    } while (0);
-
-
-#define cqc_expect_generic(_body, _chkstatus)                           \
-    do {                                                                \
-        pid_t _cqc_pid;                                                 \
-                                                                        \
-        _cqc_pid = fork();                                              \
-        assert(_cqc_pid != (pid_t)(-1));                                \
-        if (_cqc_pid == 0)                                              \
+    _cqc_pid = fork();                                                  \
+    assert(_cqc_pid != (pid_t)(-1));                                    \
+    if (_cqc_pid != 0)                                                  \
+    {                                                                   \
+        int _cqc_status;                                                \
+        pid_t _cqc_rc = waitpid(_cqc_pid, &_cqc_status, 0);             \
+        assert(_cqc_rc == _cqc_pid);                                    \
+        if (_isok)                                                      \
         {                                                               \
-            if (!cqc_debug)                                             \
-                setrlimit(RLIMIT_CORE, &(const struct rlimit){0, 0});   \
-            _body;                                                      \
-            exit(EXIT_SUCCESS);                                         \
+            if (cqc_verbose == 1)                                       \
+                fputc('.', stderr);                                     \
         }                                                               \
         else                                                            \
         {                                                               \
-            int _cqc_status;                                            \
-            pid_t _cqc_rc = waitpid(_cqc_pid, &_cqc_status, 0);         \
-            assert(_cqc_rc == _cqc_pid);                                \
-            if (_chkstatus)                                             \
-            {                                                           \
-                _cqc_state.result.passed++;                             \
-                if (cqc_verbose == 1)                                   \
-                    fputc('.', stderr);                                 \
-            }                                                           \
-            else                                                        \
-            {                                                           \
-                _cqc_state.result.failed++;                             \
-                _cqc_state.failed_iter = true;                          \
-                if (cqc_verbose > 0)                                    \
-                    fputc('!', stderr);                                 \
-            }                                                           \
+            *_cqc_result = (_isfail ? CQC_RESULT_FAILED :               \
+                            CQC_RESULT_CRASHED);                        \
+            if (cqc_verbose > 0)                                        \
+                fputc('!', stderr);                                     \
         }                                                               \
-    } while (0)
+    }                                                                   \
+    else                                                                \
+        for ((!cqc_debug ?                                              \
+              setrlimit(RLIMIT_CORE,                                    \
+                        &(const struct rlimit){0, 0}) : 0), (_setup);;  \
+            exit(EXIT_SUCCESS))
 
-#define cqc_expect(_body)                                               \
-    cqc_expect_generic(_body,                                           \
-                       WIFEXITED(_cqc_status) &&                        \
-                       WEXITSTATUS(_cqc_status) == 0)
+#define cqc_expect                                          \
+    cqc_expect_generic(WIFEXITED(_cqc_status) &&            \
+                       WEXITSTATUS(_cqc_status) == 0,       \
+                       WIFSIGNALED(_cqc_status) &&          \
+                       WTERMSIG(_cqc_status) == SIGABRT, 0)
 
-#define cqc_expect_crash(_signal, _body)                                \
-    cqc_expect_generic(_body,                                           \
-                       WIFSIGNALED(_cqc_status) &&                      \
-                       WTERMSIG(_cqc_status) == _signal)
+#define cqc_expect_crash(_setup, _signal)                   \
+    cqc_expect_generic(WIFSIGNALED(_cqc_status) &&          \
+                       WTERMSIG(_cqc_status) == _signal,    \
+                       WIFEXITED(_cqc_status), _setup)
 
-#define cqc_expect_fail(_body) cqc_expect_crash(SIGABRT, _body)
+#define cqc_expect_fail cqc_expect_crash(0, SIGABRT)
 
-#define cqc_expect_timeout(_timeout, _body)             \
-    cqc_expect_crash(SIGALRM, alarm(_timeout); _body)
+#define cqc_expect_timeout(_timeout)            \
+    cqc_expect_crash(alarm(_timeout), SIGALRM)
 
 #define cqc_log(_fmt, ...)                          \
           fprintf(stderr, _fmt "\n", __VA_ARGS__)
@@ -566,7 +535,7 @@ cqc_string_escape(const char *src)
     } while (0)
 
 
-#define cqc_assert_eqn(_type, _n1, _v1, _n2, _v2)           \
+#define cqc_assert_vec_eq(_type, _n1, _v1, _n2, _v2)        \
     do {                                                    \
         unsigned __i;                                       \
         cqc_assert_eq(unsigned, _n1, _n2);                  \
@@ -576,12 +545,13 @@ cqc_string_escape(const char *src)
         }                                                   \
     } while (0)
 
-#define cqc_assert_eqfn(_type, _n, _v, _f,  _c)             \
+#define cqc_assert_foreach_eq(_type, _n, _v, _vi,  _c)      \
     do {                                                    \
         unsigned __i;                                       \
         for (__i = 0; __i < (_n); __i++)                    \
         {                                                   \
-            cqc_assert_eq(_type, ((_v)[__i]) _f, (_c));    \
+            _type _vi = (_v)[__i];                          \
+            cqc_assert_eq(_type, _vi, (_c));                \
         }                                                   \
     } while (0)
 
@@ -602,6 +572,8 @@ int main(int argc, char *argv[])
     int opt;
     unsigned seed;
     struct timeval now;
+    unsigned failed = 0;
+    unsigned passed = 0;
 
     gettimeofday(&now, NULL);
     seed = now.tv_sec ^ now.tv_usec;
@@ -645,23 +617,23 @@ int main(int argc, char *argv[])
 
     for (iter = cqc_first_testcase; iter != NULL; iter = iter->next)
     {
-        cqc_result current;
+        cqc_result current = CQC_RESULT_PASSED;
+        unsigned attempts;
+        unsigned probed = 0;
 
         if (optind < argc && strcmp(iter->id, argv[optind]) != 0)
             continue;
 
         fprintf(stderr, "%s ", iter->name);
-        current = iter->test();
-        total.passed += current.passed;
-        total.failed += current.failed;
-        total.uncertain += current.uncertain;
 
-        if (current.failed + current.passed == 0)
-            fputs(" SKIP\n", stderr);
-        else if (current.failed != 0)
-            fputs(" FAIL\n", stderr);
-        else
-            fputs(" OK\n", stderr);
+        for (attempts = 0;
+             attempts <= cqc_max_iter &&
+                 (current == CQC_RESULT_PASSED ||
+                  current == CQC_RESULT_SKIPPED);
+             attempts++)
+        {
+            iter->test(&current);
+        }
     }
     if (total.passed + total.failed == 0)
     {
