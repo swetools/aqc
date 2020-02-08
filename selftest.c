@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <float.h>
 #include "cqc.h"
 
 CQC_TESTCASE(test_simple, "A simple test")
@@ -75,7 +76,7 @@ CQC_TESTCASE(test_oneof, "Select one of")
 CQC_TESTCASE(test_scaled_int,
              "Generating an integer up to the scale")
 {
-    cqc_forall_range(int, scale, 1, 63)
+    cqc_forall_range(int, scale, 1, sizeof(uint64_t) * CHAR_BIT - 1)
     {
         cqc_forall_scaled(uint64_t, v, scale)
         {
@@ -90,7 +91,7 @@ CQC_TESTCASE(test_scaled_int,
 CQC_TESTCASE(test_scaled_double,
              "Generate scaled floating-point")
 {
-    cqc_forall_scaled(double, v, 35)
+    cqc_forall_scaled(double, v, DBL_MAX_10_EXP)
     {
         cqc_expect
         {
@@ -99,31 +100,110 @@ CQC_TESTCASE(test_scaled_double,
     }
 }
 
-/*
+
+
 CQC_TESTCASE(test_double_class,
-             "Generate double with special values",
-             CQC_FP_CLASSES,
-             cqc_forall_cc(50, double, v,
-                           cqc_classify(cqc_fp_class(v),
-                                        cqc_expect(assert(true)))));
+             "Generate double with special values")
+{
+    cqc_forall_alt(double, v, 50, NAN, INFINITY, -INFINITY, 0.0, DBL_MIN / 2)
+    {
+        cqc_classify(fpc,
+                     switch (fpclassify(v))
+                     {
+                         case FP_NAN:
+                             fpc = 0;
+                             break;
+                         case FP_INFINITE:
+                             fpc = 1;
+                             break;
+                         case FP_ZERO:
+                             fpc = 2;
+                             break;
+                         case FP_SUBNORMAL:
+                             fpc = 3;
+                             break;
+                         case FP_NORMAL:
+                             fpc = 4;
+                             break;
+                         default:
+                             assert(0);
+                     },
+                     "NaN", "infinite", "zero", "subnormal", "normal")
+        {
+            cqc_expect
+            {
+                assert(true);
+            }
+        }
+    }
+}
 
 CQC_TESTCASE(test_char_class,
-             "Generate ASCII character and classify them",
-             CQC_CHAR_CLASSES,
-             cqc_forall(char, ch,
-                        cqc_classify(cqc_char_class(ch),
-                                     cqc_expect(assert(true)))));
+             "Generate ASCII character and classify them")
+{
+    cqc_forall(char, ch)
+    {
+        cqc_classify(cc,
+                     if (isalpha(ch))
+                         cc = 0;
+                     else if (isdigit(ch))
+                         cc = 1;
+                     else if (ispunct(ch))
+                         cc = 2;
+                     else
+                         cc = 3,
+                     "alpha", "digit", "punct", "nongraph")
+        {
+            cqc_expect
+            {
+                assert(true);
+            }
+        }
+    }
+}
 
 CQC_TESTCASE(test_string,
-             "Generate a random string",
-             CQC_NO_CLASSES,
-             cqc_forall_cc(10, cqc_string, str,
-                           cqc_expect(cqc_assert_eq(cqc_string, str, str))));
+             "Generate a random string")
+{
+    cqc_forall_alt(cqc_string, str, 10, "")
+    {
+        cqc_classify(sc, sc = *str == '\0' ? 0 : 1,
+                     "empty", "non-empty")
+        {
+            cqc_expect
+            {
+                cqc_assert_eq(cqc_string, str, str);
+            }
+        }
+    }
+}
 
-CQC_TESTCASE(test_condition,
-             "Generate an even integer",
-             CQC_NO_CLASSES,
-             cqc_forall(int, v,
-                        cqc_condition(v % 2 == 0,
-                                      cqc_expect(assert(v % 2 == 0)))));
-*/
+CQC_TESTCASE(test_condition, "Generate an even integer")
+{
+    cqc_forall(int, v)
+    {
+        cqc_condition(v % 2 == 0)
+        {
+            cqc_expect
+            {
+                assert(v % 2 == 0);
+            }
+        }
+    }
+}
+
+CQC_TESTCASE(test_pair, "Generate a pair of integers")
+{
+    cqc_forall_pair(int, v1, v2)
+    {
+        cqc_classify(oc, oc = v1 < v2,
+                     "less", "not less")
+        {
+            cqc_expect
+            {
+                assert(v1 < v2 || v1 >= v2);
+            }
+        }
+    }
+}
+

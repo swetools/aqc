@@ -27,7 +27,6 @@ extern "C"
 #include <inttypes.h>
 #include <limits.h>
 #include <math.h>
-#include <float.h>
 #include <ctype.h>
 #include <string.h>
 
@@ -188,21 +187,6 @@ cqc_generate_cqc_string(char **str, size_t scale)
 
 #define cqc_release_cqc_string(_var) free(_var)
 
-static inline unsigned
-cqc_char_class(char c)
-{
-    if (!isgraph(c))
-        return 0;
-    if (isalpha(c))
-        return 1;
-    if (isdigit(c))
-        return 2;
-    if (ispunct(c))
-        return 3;
-    assert(0);
-    return 0;
-}
-
 __attribute__ ((unused))
 static void
 cqc_generate_double(double *var, size_t scale)
@@ -211,27 +195,6 @@ cqc_generate_double(double *var, size_t scale)
     double d = (double)random() / RAND_MAX;
 
     *var = ldexp(d, exp);
-}
-
-static inline unsigned
-cqc_fp_class(double d)
-{
-    switch (fpclassify(d))
-    {
-        case FP_NAN:
-            return 0;
-        case FP_INFINITE:
-            return 1;
-        case FP_ZERO:
-            return 2;
-        case FP_SUBNORMAL:
-            return 3;
-        case FP_NORMAL:
-            return 4;
-        default:
-            assert(0);
-            return 0;
-    }
 }
 
 #define cqc_release_uint8_t(_var) ((void)0)
@@ -381,14 +344,42 @@ cqc_string_escape(const char *src)
                     cqc_log_value(_type, _var) : 0),                    \
              (_clean(_type, _var)))
 
+#define cqc_forall_pair_gen(_type, _var1, _var2, _gen, _clean, ...)     \
+    _type _var1, _var2;                                                 \
+    bool cqc_guard_##_var1;                                             \
+    _gen(_type, _var1, __VA_ARGS__);                                    \
+    _gen(_type, _var2, __VA_ARGS__);                                    \
+    if (cqc_verbose > 1)                                                \
+    {                                                                   \
+        cqc_log_value(_type, _var1);                                    \
+        cqc_log_value(_type, _var2);                                    \
+    }                                                                   \
+    for (cqc_guard_##_var1 = true;                                      \
+         cqc_guard_##_var1;                                             \
+         cqc_guard_##_var1 = false,                                     \
+             (void)(cqc_verbose == 1 &&                                 \
+                    (*_cqc_result == CQC_RESULT_FAILED ||               \
+                     *_cqc_result == CQC_RESULT_CRASHED) ?              \
+                    (cqc_log_value(_type, _var1),                       \
+                     cqc_log_value(_type, _var2)): 0),                  \
+             (_clean(_type, _var1), _clean(_type, _var2)))
+
 
 #define cqc_forall_scaled(_type, _var, _scale)                          \
     cqc_forall_gen(_type, _var, cqc_generate_type, cqc_cleanup_type, _scale)
+
+#define cqc_forall_pair_scaled(_type, _var1, _var2, _scale)             \
+    cqc_forall_pair_gen(_type, _var1, _var2, cqc_generate_type,         \
+                        cqc_cleanup_type, _scale)
 
 #define cqc_forall_oneof(_type, _var, ...)                              \
     cqc_forall_gen(_type, _var,                                         \
                    cqc_generate_oneof, cqc_cleanup_oneof, __VA_ARGS__)
 
+#define cqc_forall_pair_of(_type, _var1, _var2, ...)                    \
+    cqc_forall_pair_gen(_type, _var1, _var2,                            \
+                        cqc_generate_oneof, cqc_cleanup_oneof, __VA_ARGS__)
+    
 #define cqc_forall_alt_scaled(_type, _var, _ratio, _scale, ...)         \
     cqc_forall_gen(_type, _var,                                         \
                    cqc_generate_alt,                                    \
@@ -406,6 +397,9 @@ cqc_string_escape(const char *src)
 
 #define cqc_forall(_type, _var)                 \
     cqc_forall_scaled(_type, _var, cqc_scale)
+
+#define cqc_forall_pair(_type, _var1, _var2)              \
+    cqc_forall_pair_scaled(_type, _var1, _var2, cqc_scale)
 
 #define cqc_forall_alt(_type, _var, _ratio, ...)                        \
     cqc_forall_alt_scaled(_type, _var, _ratio, cqc_scale, __VA_ARGS__)
@@ -553,14 +547,14 @@ cqc_log_class_stats(size_t n, const char *const classes[],
         }                                                   \
     } while (0)
 
-#define cqc_assert_foreach_eq(_type, _n, _v, _vi,  _c)      \
-    do {                                                    \
-        unsigned __i;                                       \
-        for (__i = 0; __i < (_n); __i++)                    \
-        {                                                   \
-            _type _vi = (_v)[__i];                          \
-            cqc_assert_eq(_type, _vi, (_c));                \
-        }                                                   \
+#define cqc_assert_foreach_eq(_type, _n, _v, _vi, _expr, _c)    \
+    do {                                                        \
+        unsigned __i;                                           \
+        for (__i = 0; __i < (_n); __i++)                        \
+        {                                                       \
+            _type _vi = (_v)[__i];                              \
+            cqc_assert_eq(_type, (_expr), (_c));                \
+        }                                                       \
     } while (0)
 
 int main(int argc, char *argv[])
