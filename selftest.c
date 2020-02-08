@@ -6,45 +6,100 @@
 
 #include "cqc.h"
 
-CQC_TESTCASE(test_simple,
-             "A simple test", CQC_NO_CLASSES,
-             cqc_expect(assert(true)));
+CQC_TESTCASE(test_simple, "A simple test")
+{
+    cqc_expect
+    {
+        assert(true);
+    }
+}
 
-CQC_TESTCASE(test_boolean,
-             "A boolean test", CQC_NO_CLASSES,
-             cqc_forall(bool, b, cqc_expect(assert(b || !b))));
+CQC_TESTCASE(test_boolean, "A boolean test")
+{
+    cqc_forall(bool, b)
+    {
+        cqc_expect
+        {
+            assert(b || !b);
+        }
+    }
+}
 
-CQC_TESTCASE(test_boolean_class,
-             "A boolean test with classes", CQC_BOOL_CLASSES,
-             cqc_forall(bool, b,
-                        cqc_classify(b ? 1 : 0,
-                                     cqc_expect(assert(b || !b)))));
+CQC_TESTCASE(test_boolean_class, "A boolean test with classes")
+{
+    cqc_forall(bool, b)
+    {
+        cqc_classify(bc, bc = b ? 0 : 1, "true", "false")
+        {
+            cqc_expect
+            {
+                assert(b || !b);
+            }
+        }
+    }
+}
 
-CQC_TESTCASE_SINGLE(test_expect_fail,
-             "A failing test",
-                    cqc_expect_fail(cqc_assert_eq(int, 1, 2)));
+CQC_TESTCASE(test_expect_fail, "A failing test")
+{
+    cqc_once
+    {
+        cqc_expect_fail
+        {
+            cqc_assert_eq(int, 1, 2);
+        }
+    }
+}
 
-CQC_TESTCASE_SINGLE(test_expect_timeout,
-                    "A timed out test",
-                    cqc_expect_timeout(1, sleep(10)));
+CQC_TESTCASE(test_expect_timeout, "A timed out test")
+{
+    cqc_once
+    {
+        cqc_expect_timeout(1)
+        {
+            sleep(10);
+        }
+    }
+}
 
-CQC_TESTCASE(test_oneof,
-             "Select one of", CQC_NO_CLASSES,
-             cqc_forall_oneof(int, x, cqc_list(1, 2, 3, 4),
-                              cqc_expect(assert(true))));
+CQC_TESTCASE(test_oneof, "Select one of")
+{
+    cqc_forall_oneof(int, x, 1, 2, 3, 4)
+    {
+        cqc_expect
+        {
+            assert(x >= 1 && x <= 4);
+        }
+    }
+}
 
 CQC_TESTCASE(test_scaled_int,
-             "Generating an integer up to the scale", CQC_NO_CLASSES,
-             cqc_forall_range(int, scale, 1, 63,
-                              cqc_forall_scaled
-                              (scale, uint64_t, v,
-                               cqc_expect(assert(v < (1ull << scale))))));
+             "Generating an integer up to the scale")
+{
+    cqc_forall_range(int, scale, 1, 63)
+    {
+        cqc_forall_scaled(uint64_t, v, scale)
+        {
+            cqc_expect
+            {
+                assert(v < (1ull << scale));
+            }
+        }
+    }
+}
 
 CQC_TESTCASE(test_scaled_double,
-             "Generate scaled floating-point", CQC_NO_CLASSES,
-             cqc_forall_scaled(35, double, v,
-                               cqc_expect(isfinite(v))));
+             "Generate scaled floating-point")
+{
+    cqc_forall_scaled(double, v, 35)
+    {
+        cqc_expect
+        {
+            assert(isfinite(v));
+        }
+    }
+}
 
+/*
 CQC_TESTCASE(test_double_class,
              "Generate double with special values",
              CQC_FP_CLASSES,
@@ -71,3 +126,4 @@ CQC_TESTCASE(test_condition,
              cqc_forall(int, v,
                         cqc_condition(v % 2 == 0,
                                       cqc_expect(assert(v % 2 == 0)))));
+*/
