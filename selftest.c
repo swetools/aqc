@@ -206,4 +206,3 @@ CQC_TESTCASE(test_pair, "Generate a pair of integers")
         }
     }
 }
-
