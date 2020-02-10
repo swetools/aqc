@@ -1,12 +1,12 @@
 CC = gcc
 CFLAGS = -O3 -Wall -Wextra -Werror -ggdb3 -march=native -fsanitize=undefined
-SELFTEST_FLAGS = --verbose --verbose
-RUN =
+SELFTEST_FLAGS =
+PROVE = prove
 
 .PHONY : check
 
 check : selftest
-	$(RUN) ./$< $(SELFTEST_FLAGS)
+	$(PROVE) ./$< :: $(SELFTEST_FLAGS)
 
 selftest : selftest.c cqc.h Makefile
 	$(CC) -o $@ $(CPPFLAGS) $(CFLAGS) $< $(LDFLAGS)

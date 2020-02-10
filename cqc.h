@@ -43,35 +43,6 @@ typedef enum cqc_result {
     CQC_RESULT_CRASHED,
 } cqc_result;
 
-typedef enum cqc_msg_font {
-    CQC_MSG_FONT_NORMAL,
-    CQC_MSG_FONT_PASSED,
-    CQC_MSG_FONT_FAILED,
-    CQC_MSG_FONT_CRASHED,
-    CQC_MSG_FONT_UNKNOWN,
-    CQC_MSG_FONT_VERBOSE,
-} cqc_msg_font;
-
-static const char *cqc_msg_no_fonts[] = {
-    [CQC_MSG_FONT_NORMAL] = "",
-    [CQC_MSG_FONT_PASSED] = "",
-    [CQC_MSG_FONT_FAILED] = "",
-    [CQC_MSG_FONT_CRASHED] = "",
-    [CQC_MSG_FONT_UNKNOWN] = "",
-    [CQC_MSG_FONT_VERBOSE] = "",
-};
-
-static const char *cqc_msg_color_fonts[] = {
-    [CQC_MSG_FONT_NORMAL] = "\033[0m",
-    [CQC_MSG_FONT_PASSED] = "\033[32m",
-    [CQC_MSG_FONT_FAILED] = "\033[31m",
-    [CQC_MSG_FONT_CRASHED] = "\033[91m",
-    [CQC_MSG_FONT_UNKNOWN] = "\033[34m",
-    [CQC_MSG_FONT_VERBOSE] = "\033[90m",
-};
-
-static const char * const *cqc_msg_fonts = cqc_msg_no_fonts;
-
 typedef void cqc_testing_func(cqc_result *);
 
 typedef struct cqc_testcase_list {
@@ -91,7 +62,6 @@ static cqc_testcase_list **cqc_last_testcase = &cqc_first_testcase;
 static unsigned cqc_max_iter = 1000;
 static unsigned cqc_min_iter = 100;
 static size_t cqc_scale = 100;
-static unsigned cqc_verbose;
 static bool cqc_debug;
 
 #define CQC_TESTCASE(_id, _descr)                                       \
@@ -110,6 +80,9 @@ static bool cqc_debug;
                                                                         \
     __attribute__ ((unused))                                            \
     static void cqc_testfunc_##_id(cqc_result *_cqc_result)
+
+#define cqc_log(_fmt, ...)                      \
+    ((void)printf("# " _fmt "\n", __VA_ARGS__))
 
 __attribute__ ((unused))
 static void
@@ -325,11 +298,9 @@ cqc_string_escape(const char *src)
     return tmpbuf;
 }
 
-#define cqc_log_value(_font, _type, _var)                       \
-    (fprintf(stderr, "%s[" #_var "=" cqc_typefmt_##_type "]%s", \
-             cqc_msg_fonts[CQC_MSG_FONT_##_font],               \
-             cqc_typeargs_##_type(_var),                        \
-             cqc_msg_fonts[CQC_MSG_FONT_NORMAL]))
+#define cqc_log_value(_type, _var)                              \
+    (cqc_log("[%s=" cqc_typefmt_##_type "]",                    \
+             #_var, cqc_typeargs_##_type(_var)))
 
 #define cqc_generate_type(_type, _var, _scale)  \
     cqc_generate_##_type(&(_var), _scale)
@@ -365,15 +336,10 @@ cqc_string_escape(const char *src)
     _type _var;                                                         \
     bool cqc_guard_##_var;                                              \
     _gen(_type, _var, __VA_ARGS__);                                     \
-    if (cqc_verbose > 1)                                                \
-        cqc_log_value(VERBOSE, _type, _var);                            \
+    cqc_log_value(_type, _var);                                         \
     for (cqc_guard_##_var = true;                                       \
          cqc_guard_##_var;                                              \
          cqc_guard_##_var = false,                                      \
-             (void)(cqc_verbose == 1 &&                                 \
-                    (*_cqc_result == CQC_RESULT_FAILED ||               \
-                     *_cqc_result == CQC_RESULT_CRASHED) ?              \
-                    cqc_log_value(FAILED, _type, _var) : 0),            \
              (_clean(_type, _var)))
 
 #define cqc_forall_pair_gen(_type, _var1, _var2, _gen, _clean, ...)     \
@@ -381,19 +347,11 @@ cqc_string_escape(const char *src)
     bool cqc_guard_##_var1;                                             \
     _gen(_type, _var1, __VA_ARGS__);                                    \
     _gen(_type, _var2, __VA_ARGS__);                                    \
-    if (cqc_verbose > 1)                                                \
-    {                                                                   \
-        cqc_log_value(VERBOSE, _type, _var1);                           \
-        cqc_log_value(VERBOSE, _type, _var2);                           \
-    }                                                                   \
+    cqc_log_value(_type, _var1);                                        \
+    cqc_log_value(_type, _var2);                                        \
     for (cqc_guard_##_var1 = true;                                      \
          cqc_guard_##_var1;                                             \
          cqc_guard_##_var1 = false,                                     \
-             (void)(cqc_verbose == 1 &&                                 \
-                    (*_cqc_result == CQC_RESULT_FAILED ||               \
-                     *_cqc_result == CQC_RESULT_CRASHED) ?              \
-                    (cqc_log_value(FAILED, _type, _var1),               \
-                     cqc_log_value(FAILED, _type, _var2)): 0),          \
              (_clean(_type, _var1), _clean(_type, _var2)))
 
 
@@ -459,10 +417,7 @@ cqc_log_class_stats(size_t n, const char *const classes[],
     {
         if (counts[i] > 0)
         {
-            fprintf(stderr, " %s[%s %.2f%%]%s",
-                    cqc_msg_fonts[CQC_MSG_FONT_VERBOSE],
-                    classes[i], (double)counts[i] * 100 / total,
-                    cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);
+            cqc_log("[%s %.2f%%]", classes[i], (double)counts[i] * 100 / total);
         }
     }
 }
@@ -485,18 +440,14 @@ cqc_log_class_stats(size_t n, const char *const classes[],
     for (cqc_guard_##_clsvar = true;                                    \
          cqc_guard_##_clsvar;                                           \
          cqc_guard_##_clsvar = false,                                   \
-             (*_cqc_result == CQC_RESULT_COMPLETE && cqc_verbose > 0 ?  \
+             (*_cqc_result == CQC_RESULT_COMPLETE ?                     \
               cqc_log_class_stats(CQC_ARRAYSIZE(cqc_classes_##_clsvar), \
                                   cqc_classes_##_clsvar,                \
                                   cqc_classcnt_##_clsvar) : (void)0),   \
-              (void)(cqc_verbose > 0 &&                                 \
-                     (*_cqc_result == CQC_RESULT_FAILED ||              \
-                      *_cqc_result == CQC_RESULT_CRASHED) ?             \
-                     fprintf(stderr, " %s[%s]%s",                       \
-                             cqc_msg_fonts[CQC_MSG_FONT_FAILED],        \
-                             cqc_classes_##_clsvar[_clsvar],            \
-                             cqc_msg_fonts[CQC_MSG_FONT_NORMAL]) :      \
-                     0))                                                \
+             (void)((*_cqc_result == CQC_RESULT_FAILED ||               \
+                     *_cqc_result == CQC_RESULT_CRASHED) ?              \
+                    cqc_log("[%s]", cqc_classes_##_clsvar[_clsvar]) :   \
+                    0))                                                 \
 
 #define cqc_once                                \
     *_cqc_result = CQC_RESULT_FORCE_COMPLETE;
@@ -515,14 +466,6 @@ cqc_log_class_stats(size_t n, const char *const classes[],
         {                                                               \
             *_cqc_result = (_isfail ? CQC_RESULT_FAILED :               \
                             CQC_RESULT_CRASHED);                        \
-            if (cqc_verbose > 0)                                        \
-            {                                                           \
-                fprintf(stderr, "%s!%s",                                \
-                        cqc_msg_fonts[*_cqc_result == CQC_RESULT_FAILED ? \
-                                      CQC_MSG_FONT_FAILED :             \
-                                      CQC_MSG_FONT_CRASHED],            \
-                        cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);            \
-            }                                                           \
         }                                                               \
     }                                                                   \
     else                                                                \
@@ -547,10 +490,14 @@ cqc_log_class_stats(size_t n, const char *const classes[],
 #define cqc_expect_timeout(_timeout)            \
     cqc_expect_crash(alarm(_timeout), SIGALRM)
 
-#define cqc_log(_fmt, ...)                          \
-          fprintf(stderr, _fmt "\n", __VA_ARGS__)
-
-#define cqc_assert(_expr) assert(_expr)
+#define cqc_assert(_expr)                           \
+    do {                                            \
+        if (!(_expr))                               \
+        {                                           \
+            cqc_log("Assertion %s failed", #_expr); \
+            abort();                                \
+        }                                           \
+    } while (0)
 
 #define cqc_assert_eq(_type, _v1, _v2)                                  \
     do {                                                                \
@@ -558,9 +505,11 @@ cqc_log_class_stats(size_t n, const char *const classes[],
         _type __v2 = (_v2);                                             \
         if (!cqc_equal_##_type(__v1, __v2))                             \
         {                                                               \
-            cqc_log("Assertion " #_v1 " == " #_v2 " failed: expected "  \
+            cqc_log("Assertion %s == %s failed: expected "              \
                     cqc_typefmt_##_type ", got " cqc_typefmt_##_type,   \
-                    cqc_typeargs_##_type(__v1), cqc_typeargs_##_type(__v2)); \
+                    #_v1, #_v2,                                         \
+                    cqc_typeargs_##_type(__v1),                         \
+                    cqc_typeargs_##_type(__v2));                        \
             abort();                                                    \
         }                                                               \
     } while (0)
@@ -571,8 +520,9 @@ cqc_log_class_stats(size_t n, const char *const classes[],
         _type __v2 = (_v2);                                             \
         if (cqc_equal_##_type(__v1, __v2))                              \
         {                                                               \
-            cqc_log("Assertion " #_v1 " != " #_v2 " failed: both are "  \
+            cqc_log("Assertion %s != %s failed: both are "              \
                     cqc_typefmt_##_type,                                \
+                    #_v1, #_v2,                                         \
                     cqc_typeargs_##_type(__v1));                        \
             abort();                                                    \
         }                                                               \
@@ -603,33 +553,26 @@ int main(int argc, char *argv[])
 {
     cqc_testcase_list *iter;
     static const struct option options[] = {
-        {"verbose", no_argument, NULL, 'v'},
         {"debug", no_argument, NULL, 'd'},
         {"min", required_argument, NULL, 'm'},
         {"limit", required_argument, NULL, 'l'},
         {"scale", required_argument, NULL, 's'},
         {"seed", required_argument, NULL, 'S'},
         {"list", no_argument, NULL, 't'},
-        {"colorize", no_argument, NULL, 'c'},
         {NULL, no_argument, NULL, 0}
     };
     int opt;
     unsigned seed;
     struct timeval now;
-    unsigned failed = 0;
-    unsigned passed = 0;
-    unsigned crashed = 0;
-    unsigned unknown = 0;
+    unsigned n_test = 0;
 
+    setbuf(stdout, NULL);
     gettimeofday(&now, NULL);
     seed = now.tv_sec ^ now.tv_usec;
     while ((opt = getopt_long(argc, argv, "vdm:l:s:S:tc", options, NULL)) != -1)
     {
         switch (opt)
         {
-            case 'v':
-                cqc_verbose++;
-                break;
             case 'd':
                 cqc_debug = true;
                 break;
@@ -645,9 +588,6 @@ int main(int argc, char *argv[])
             case 'S':
                 seed = strtoul(optarg, NULL, 0);
                 break;
-            case 'c':
-                cqc_msg_fonts = cqc_msg_color_fonts;
-                break;
             case 't':
             {
                 for (iter = cqc_first_testcase; iter != NULL; iter = iter->next)
@@ -660,11 +600,16 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
         }
     }
-    if (cqc_verbose > 0)
-        fprintf(stderr, "Random seed is %u\n", seed);
     srandom(seed);
 
     for (iter = cqc_first_testcase; iter != NULL; iter = iter->next)
+        n_test++;
+
+    printf("1..%u\n", n_test);
+    cqc_log("Random seed is %u", seed);
+
+    for (iter = cqc_first_testcase, n_test = 1; iter != NULL;
+         iter = iter->next, n_test++)
     {
         cqc_result current = CQC_RESULT_PENDING;
         unsigned attempts;
@@ -673,19 +618,11 @@ int main(int argc, char *argv[])
         if (optind < argc && strcmp(iter->id, argv[optind]) != 0)
             continue;
 
-        fprintf(stderr, "%s ", iter->name);
-
         for (attempts = 0;
              attempts <= cqc_max_iter &&
                  current == CQC_RESULT_PENDING;
              attempts++)
         {
-            if (cqc_verbose > 0)
-            {
-                fprintf(stderr, "%s.%s",
-                        cqc_msg_fonts[CQC_MSG_FONT_VERBOSE],
-                        cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);
-            }
             current = probed > cqc_min_iter ?
                 CQC_RESULT_COMPLETE : CQC_RESULT_PENDING;
             iter->test(&current);
@@ -698,62 +635,23 @@ int main(int argc, char *argv[])
         {
             case CQC_RESULT_COMPLETE:
             case CQC_RESULT_FORCE_COMPLETE:
-                fprintf(stderr, " %sOK%s\n",
-                        cqc_msg_fonts[CQC_MSG_FONT_PASSED],
-                        cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);
-                passed++;
+                printf("ok %u %s %s\n", n_test, iter->id, iter->name);
                 break;
             case CQC_RESULT_PENDING:
-                fprintf(stderr, " %sUNKNOWN%s\n",
-                        cqc_msg_fonts[CQC_MSG_FONT_UNKNOWN],
-                        cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);
-                unknown++;
+                printf("ok %u %s # SKIP Arguments exhausted after %u tries \n",
+                       n_test, iter->id, attempts);
                 break;
             case CQC_RESULT_FAILED:
-                fprintf(stderr, " %sFAIL%s\n",
-                        cqc_msg_fonts[CQC_MSG_FONT_FAILED],
-                        cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);
-                failed++;
+                printf("not ok %u %s %s\n", n_test, iter->id, iter->name);
                 break;
             case CQC_RESULT_CRASHED:
-                fprintf(stderr, " %sCRASH%s\n",
-                        cqc_msg_fonts[CQC_MSG_FONT_CRASHED],
-                        cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);
-                crashed++;
+                printf("not ok %u %s %s CRASH\n", n_test, iter->id, iter->name);
                 break;
             default:
                 assert(0);
         }
     }
-    if (passed + failed + crashed == 0)
-    {
-        fputs("No tests have been run!!!\n", stderr);
-        return EXIT_FAILURE;
-    }
-    fprintf(stderr, "Passed %s%u%s, failed %s%u%s, "
-            "crashed %s%u%s, unknown %s%u%s\n",
-            cqc_msg_fonts[passed > 0 ?
-                          CQC_MSG_FONT_PASSED :
-                          CQC_MSG_FONT_NORMAL],
-            passed,
-            cqc_msg_fonts[CQC_MSG_FONT_NORMAL],
-            cqc_msg_fonts[failed > 0 ?
-                          CQC_MSG_FONT_FAILED :
-                          CQC_MSG_FONT_NORMAL],
-            failed,
-            cqc_msg_fonts[CQC_MSG_FONT_NORMAL],
-            cqc_msg_fonts[crashed > 0 ?
-                          CQC_MSG_FONT_CRASHED :
-                          CQC_MSG_FONT_NORMAL],
-            crashed,
-            cqc_msg_fonts[CQC_MSG_FONT_NORMAL],
-            cqc_msg_fonts[unknown > 0 ?
-                          CQC_MSG_FONT_UNKNOWN :
-                          CQC_MSG_FONT_NORMAL],
-            unknown,
-            cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);
-
-    return failed + crashed == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+    return 0;
 }
 
 
