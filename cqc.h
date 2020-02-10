@@ -49,7 +49,7 @@ typedef enum cqc_msg_font {
     CQC_MSG_FONT_FAILED,
     CQC_MSG_FONT_CRASHED,
     CQC_MSG_FONT_UNKNOWN,
-    CQC_MSG_FONT_STATS,
+    CQC_MSG_FONT_VERBOSE,
 } cqc_msg_font;
 
 static const char *cqc_msg_no_fonts[] = {
@@ -58,7 +58,7 @@ static const char *cqc_msg_no_fonts[] = {
     [CQC_MSG_FONT_FAILED] = "",
     [CQC_MSG_FONT_CRASHED] = "",
     [CQC_MSG_FONT_UNKNOWN] = "",
-    [CQC_MSG_FONT_STATS] = "",
+    [CQC_MSG_FONT_VERBOSE] = "",
 };
 
 static const char *cqc_msg_color_fonts[] = {
@@ -67,7 +67,7 @@ static const char *cqc_msg_color_fonts[] = {
     [CQC_MSG_FONT_FAILED] = "\033[31m",
     [CQC_MSG_FONT_CRASHED] = "\033[91m",
     [CQC_MSG_FONT_UNKNOWN] = "\033[34m",
-    [CQC_MSG_FONT_STATS] = "\033[90m",
+    [CQC_MSG_FONT_VERBOSE] = "\033[90m",
 };
 
 static const char * const *cqc_msg_fonts = cqc_msg_no_fonts;
@@ -366,7 +366,7 @@ cqc_string_escape(const char *src)
     bool cqc_guard_##_var;                                              \
     _gen(_type, _var, __VA_ARGS__);                                     \
     if (cqc_verbose > 1)                                                \
-        cqc_log_value(NORMAL, _type, _var);                             \
+        cqc_log_value(VERBOSE, _type, _var);                            \
     for (cqc_guard_##_var = true;                                       \
          cqc_guard_##_var;                                              \
          cqc_guard_##_var = false,                                      \
@@ -383,8 +383,8 @@ cqc_string_escape(const char *src)
     _gen(_type, _var2, __VA_ARGS__);                                    \
     if (cqc_verbose > 1)                                                \
     {                                                                   \
-        cqc_log_value(NORMAL, _type, _var1);                            \
-        cqc_log_value(NORMAL, _type, _var2);                            \
+        cqc_log_value(VERBOSE, _type, _var1);                           \
+        cqc_log_value(VERBOSE, _type, _var2);                           \
     }                                                                   \
     for (cqc_guard_##_var1 = true;                                      \
          cqc_guard_##_var1;                                             \
@@ -460,7 +460,7 @@ cqc_log_class_stats(size_t n, const char *const classes[],
         if (counts[i] > 0)
         {
             fprintf(stderr, " %s[%s %.2f%%]%s",
-                    cqc_msg_fonts[CQC_MSG_FONT_STATS],
+                    cqc_msg_fonts[CQC_MSG_FONT_VERBOSE],
                     classes[i], (double)counts[i] * 100 / total,
                     cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);
         }
@@ -516,7 +516,13 @@ cqc_log_class_stats(size_t n, const char *const classes[],
             *_cqc_result = (_isfail ? CQC_RESULT_FAILED :               \
                             CQC_RESULT_CRASHED);                        \
             if (cqc_verbose > 0)                                        \
-                fputc('!', stderr);                                     \
+            {                                                           \
+                fprintf(stderr, "%s!%s",                                \
+                        cqc_msg_fonts[*_cqc_result == CQC_RESULT_FAILED ? \
+                                      CQC_MSG_FONT_FAILED :             \
+                                      CQC_MSG_FONT_CRASHED],            \
+                        cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);            \
+            }                                                           \
         }                                                               \
     }                                                                   \
     else                                                                \
@@ -674,8 +680,12 @@ int main(int argc, char *argv[])
                  current == CQC_RESULT_PENDING;
              attempts++)
         {
-            if (cqc_verbose > 1)
-                fputc('.', stderr);
+            if (cqc_verbose > 0)
+            {
+                fprintf(stderr, "%s.%s",
+                        cqc_msg_fonts[CQC_MSG_FONT_VERBOSE],
+                        cqc_msg_fonts[CQC_MSG_FONT_NORMAL]);
+            }
             current = probed > cqc_min_iter ?
                 CQC_RESULT_COMPLETE : CQC_RESULT_PENDING;
             iter->test(&current);
