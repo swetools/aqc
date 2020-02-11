@@ -11,7 +11,7 @@ CQC_TESTCASE(test_simple, "A simple test")
 {
     cqc_expect
     {
-        assert(true);
+        cqc_assert(true);
     }
 }
 
@@ -21,7 +21,7 @@ CQC_TESTCASE(test_boolean, "A boolean test")
     {
         cqc_expect
         {
-            assert(b || !b);
+            cqc_assert(b || !b);
         }
     }
 }
@@ -34,7 +34,7 @@ CQC_TESTCASE(test_boolean_class, "A boolean test with classes")
         {
             cqc_expect
             {
-                assert(b || !b);
+                cqc_assert(b || !b);
             }
         }
     }
@@ -68,7 +68,7 @@ CQC_TESTCASE(test_oneof, "Select one of")
     {
         cqc_expect
         {
-            assert(x >= 1 && x <= 4);
+            cqc_assert(x >= 1 && x <= 4);
         }
     }
 }
@@ -82,7 +82,7 @@ CQC_TESTCASE(test_scaled_int,
         {
             cqc_expect
             {
-                assert(v < (1ull << scale));
+                cqc_assert(v < (1ull << scale));
             }
         }
     }
@@ -95,7 +95,7 @@ CQC_TESTCASE(test_scaled_double,
     {
         cqc_expect
         {
-            assert(isfinite(v));
+            cqc_assert(isfinite(v));
         }
     }
 }
@@ -132,7 +132,7 @@ CQC_TESTCASE(test_double_class,
         {
             cqc_expect
             {
-                assert(true);
+                cqc_assert(true);
             }
         }
     }
@@ -156,7 +156,7 @@ CQC_TESTCASE(test_char_class,
         {
             cqc_expect
             {
-                assert(true);
+                cqc_assert(true);
             }
         }
     }
@@ -186,7 +186,7 @@ CQC_TESTCASE(test_condition, "Generate an even integer")
         {
             cqc_expect
             {
-                assert(v % 2 == 0);
+                cqc_assert(v % 2 == 0);
             }
         }
     }
@@ -201,7 +201,7 @@ CQC_TESTCASE(test_pair, "Generate a pair of integers")
         {
             cqc_expect
             {
-                assert(v1 < v2 || v1 >= v2);
+                cqc_assert(v1 < v2 || v1 >= v2);
             }
         }
     }
