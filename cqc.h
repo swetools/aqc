@@ -638,8 +638,8 @@ int main(int argc, char *argv[])
                 printf("ok %u %s %s\n", n_test, iter->id, iter->name);
                 break;
             case CQC_RESULT_PENDING:
-                printf("ok %u %s # SKIP Arguments exhausted after %u tries \n",
-                       n_test, iter->id, attempts);
+                printf("not ok %u %s: Arguments exhausted after %u tries\n",
+                       n_test, iter->id, attempts - 1);
                 break;
             case CQC_RESULT_FAILED:
                 printf("not ok %u %s %s\n", n_test, iter->id, iter->name);
