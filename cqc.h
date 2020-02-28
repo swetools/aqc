@@ -63,6 +63,7 @@ static unsigned cqc_max_iter = 1000;
 static unsigned cqc_min_iter = 100;
 static size_t cqc_scale = 100;
 static bool cqc_debug;
+static pid_t _cqc_pid;
 
 #define CQC_TESTCASE(_id, _descr)                                       \
     static cqc_testing_func cqc_testfunc_##_id;                         \
@@ -453,8 +454,6 @@ cqc_log_class_stats(size_t n, const char *const classes[],
     *_cqc_result = CQC_RESULT_FORCE_COMPLETE;
 
 #define cqc_expect_generic(_isok, _isfail, _setup)                      \
-    pid_t _cqc_pid;                                                     \
-                                                                        \
     _cqc_pid = fork();                                                  \
     assert(_cqc_pid != (pid_t)(-1));                                    \
     if (_cqc_pid != 0)                                                  \
