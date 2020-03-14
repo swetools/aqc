@@ -565,6 +565,10 @@ int main(int argc, char *argv[])
     struct timeval now;
     unsigned n_test = 0;
 
+#ifdef CQC_GLOBAL_INIT
+    CQC_GLOBAL_INIT;
+#endif
+
     setbuf(stdout, NULL);
     gettimeofday(&now, NULL);
     seed = now.tv_sec ^ now.tv_usec;
