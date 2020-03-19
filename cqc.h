@@ -397,7 +397,10 @@ cqc_string_escape(const char *src)
 
 #define cqc_condition(_cond)                    \
     if (!(_cond))                               \
+    {                                           \
+        cqc_log("(rejected by %s)", #_cond);    \
         *_cqc_result = CQC_RESULT_SKIPPED;      \
+    }                                           \
     else
 
 #define cqc_condition_neq(_type, _v1, _v2)              \
