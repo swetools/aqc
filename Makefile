@@ -1,18 +1,24 @@
-CC = gcc
-CFLAGS = -O3 -Wall -Wextra -Werror -ggdb3 -march=native -fsanitize=undefined
+GNATMAKE = gnatmake
+GNATCLEAN = gnatclean
+GNATFLAGS = -gnata -gnatVa -gnatwa -gnaty -we
+CFLAGS = --coverage
+LDFLAGS = --coverage
 SELFTEST_FLAGS =
 PROVE = prove
+GCOV = gcov
+GCOVFLAGS =
 
 .PHONY : check
 
-check : selftest
+check : aqc-selftest-main
 	$(PROVE) ./$< :: $(SELFTEST_FLAGS)
+	$(GCOV) $(GCOVFLAGS) *.o
 
-selftest : selftest.c cqc.h Makefile
-	$(CC) -o $@ $(CPPFLAGS) $(CFLAGS) $< $(LDFLAGS)
+aqc-selftest-main:
+	$(GNATMAKE) $(GNATFLAGS) $@ -cargs $(CFLAGS) -largs $(LDFLAGS)
 
 .PHONY : clean
 
 clean :
-	rm -f selftest
-	rm -f *.o
+	$(GNATCLEAN) *.ads
+	rm -f *.gcda *.gcno *.gcov
