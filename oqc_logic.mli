@@ -1,9 +1,9 @@
 open Oqc
 
-val (!!) : ('a -> result) -> ('a -> result)
-val (&&&) : ('a -> result) -> ('a -> result) -> ('a -> result)
-val (|||) : ('a -> result) -> ('a -> result) -> ('a -> result)
-val (==>) : ('a -> result) -> ('a -> result) -> ('a -> result)
+val (!!) : ('a -> outcome) -> ('a -> outcome)
+val (&&&) : ('a -> outcome) -> ('a -> outcome) -> ('a -> outcome)
+val (|||) : ('a -> outcome) -> ('a -> outcome) -> ('a -> outcome)
+val (==>) : ('a -> outcome) -> ('a -> outcome) -> ('a -> outcome)
 
 module NotProp (P : PROPOSITION) : PROPOSITION
 module AndProp (P1 : PROPOSITION) (P2 : PROPOSITION) : PROPOSITION

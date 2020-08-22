@@ -1,4 +1,4 @@
-type status = Ok | Not_ok
+type status = (unit, unit) result
 type directive = Todo of string
                | Skip of string
 

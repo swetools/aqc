@@ -1,7 +1,7 @@
 open Oqc
 
 let exhausted n = Skip ("Arguments exhausted after " ^ string_of_int n ^ " attempts")
-       
+
 let for_all ?sample_size: (size = !sample_size) gen check =
   let rec iterate n m =
     if n >= !min_iterations then Pass
@@ -16,7 +16,7 @@ let for_all ?sample_size: (size = !sample_size) gen check =
     iterate 0 0
   with
   | Exhausted (n, _) -> exhausted n
-    
+
 let for_some ?sample_size: (size = !sample_size)
              ?to_string: (to_string = fun _ -> "...")
              gen check =
@@ -37,7 +37,7 @@ let for_some ?sample_size: (size = !sample_size)
     iterate 0 0
   with
   | Exhausted (n, _) -> exhausted n
-            
+
 let for_one ?sample_size: (size = !sample_size)
             ?to_string: (to_string = fun _ -> "...")
             gen check =
@@ -74,14 +74,14 @@ module Forall (P : PREDICATE) =
 
     let description = "∀ x : " ^ P.D.description ^ ": " ^ P.description "x"
   end
-    
+
 module Exists (P : PREDICATE) =
   struct
     let check () = for_some ~to_string: P.D.to_string P.D.arbitrary P.predicate
 
     let description = "∃ x :  " ^ P.D.description ^ ": " ^ P.description "x"
   end
-                                  
+
 module ExistsUnique (P : PREDICATE)  =
   struct
     let check () = for_one ~to_string: P.D.to_string P.D.arbitrary P.predicate
@@ -92,7 +92,7 @@ module ExistsUnique (P : PREDICATE)  =
 module Forall2 (R : RELATION) =
   struct
     module D = R.D1
-    
+
     let predicate v = for_all R.D2.arbitrary (R.relation v)
 
     let description arg = "∀ y : " ^ R.D1.description ^ ": " ^ R.description arg "y"
