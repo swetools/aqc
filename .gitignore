@@ -13,13 +13,10 @@
 # Backup files
 *~
 
-# Ada library interface
-*.ali
+.depends
 
-# GCOV
-*.gcda
-*.gcno
-*.gcov
-
-# Tests
-aqc-selftest-main
+*.cmo
+*.cma
+*.cmx
+*.cmxa
+*.cmi

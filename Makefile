@@ -1,24 +1,40 @@
-GNATMAKE = gnatmake
-GNATCLEAN = gnatclean
-GNATFLAGS = -gnata -gnatVa -gnatwa -gnaty -we
-CFLAGS = --coverage
-LDFLAGS = --coverage
-SELFTEST_FLAGS =
-PROVE = prove
-GCOV = gcov
-GCOVFLAGS =
+OCAMLC = ocamlopt
+OCAMLCFLAGS = -principal -safe-string -w @a
+OCAML.O = cmx
+OCAML.A = cmxa
+OCAMLDEP = ocamldep
 
-.PHONY : check
+LIBRARIES = oqc.$(OCAML.A)
 
-check : aqc-selftest-main
-	$(PROVE) ./$< :: $(SELFTEST_FLAGS)
-	$(GCOV) $(GCOVFLAGS) *.o
+SOURCES = oqc.mli oqc_tap.mli oqc_logic.mli oqc_iterate.mli \
+		  oqc_domains.mli
 
-aqc-selftest-main:
-	$(GNATMAKE) $(GNATFLAGS) $@ -cargs $(CFLAGS) -largs $(LDFLAGS)
+oqc_SOURCES = oqc.ml oqc_tap.ml oqc_logic.ml oqc_iterate.ml \
+			  oqc_domains.ml
+
+SOURCES += $(oqc_SOURCES)
+
+oqc.$(OCAML.A) : $(patsubst %.ml,%.$(OCAML.O),$(oqc_SOURCES))
+
+.PHONY : all
+
+all : $(LIBRARIES)
+
+%.cmi : %.mli
+	$(OCAMLC) -c -o $@ $(OCAMLCFLAGS) $<
+
+%.$(OCAML.O) : %.ml
+	$(OCAMLC) -c -o $@ $(OCAMLCFLAGS) $<
+
+$(LIBRARIES) : %.$(OCAML.A) :
+	$(OCAMLC) -a -o $@ $(OCAMLCFLAGS) $^
 
 .PHONY : clean
 
 clean :
-	$(GNATCLEAN) *.ads
-	rm -f *.gcda *.gcno *.gcov
+	rm -f *.cmi *.$(OCAML.A) *.$(OCAML.O) *.a *.o
+
+.depends : $(SOURCES)
+	$(OCAMLDEP) $^ >$@
+
+include .depends
