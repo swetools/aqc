@@ -20,3 +20,7 @@
 *.cmx
 *.cmxa
 *.cmi
+*.cov
+selftest
+coverage.txt
+ocamlprof.dump

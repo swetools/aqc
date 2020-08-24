@@ -38,9 +38,19 @@ module type RELATION =
     val description : string -> string -> string
   end
 
+module ExpectFailure (P : PROPOSITION) : PROPOSITION
+
+module ExpectSkipped (P : PROPOSITION) : PROPOSITION
+
+module Required (P : PROPOSITION) : PROPOSITION
+
+val ensure : ?message: string -> bool -> outcome
+
 val register : (module PROPOSITION) -> unit
 
 val do_log : string -> unit
+
+val do_verbose_log : string -> unit
 
 val run : unit -> unit
 
@@ -49,3 +59,5 @@ val min_iterations : int ref
 val max_attempts : int ref
 
 val sample_size : int ref
+
+val verbose : bool ref

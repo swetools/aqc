@@ -1,5 +1,6 @@
 OCAMLCFLAGS = -I $(SRCDIR) -principal -safe-string -w @a
 OCAMLDEP = ocamldep
+SED = sed
 
 LIBRARIES = oqc.$(OCAML.A)
 APPS = selftest
@@ -13,6 +14,7 @@ oqc_SOURCES = oqc_tap.ml oqc.ml oqc_logic.ml oqc_iterate.ml \
 selftest_SOURCES = selftest.ml
 
 SOURCES += $(oqc_SOURCES)
+SOURCES += $(selftest_SOURCES)
 
 .PHONY : all
 
@@ -39,9 +41,10 @@ $(APPS) : % :
 .PHONY : clean
 
 clean :
-	rm -f *.cmi *.$(OCAML.A) *.$(OCAML.O) *.a *.o
+	rm -f *.cmi *.$(OCAML.A) *.$(OCAML.O) *.a *.o *.cov
+	rm -f .depends
 
 .depends : $(SOURCES)
-	$(OCAMLDEP) $^ >$@
+	$(OCAMLDEP) -I $(SRCDIR) $^ | $(SED) 's!$(SRCDIR)/!!g' >$@
 
 include .depends

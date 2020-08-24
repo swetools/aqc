@@ -13,7 +13,7 @@ let test ?ord ?description ?directive status =
    | Error () -> print_string "not ok");
   (match ord with
    | None -> ()
-   | Some n -> print_char ' '; print_int (succ n));
+   | Some n -> print_char ' '; print_int n);
   (match description with
    | None -> ()
    | Some descr -> print_char ' '; print_string descr);

@@ -1,19 +1,26 @@
 open Oqc
 
-module Integer : DOMAIN
-module Natural : DOMAIN
-module Char : DOMAIN
-module Boolean : DOMAIN
-module String : DOMAIN
-module Float : DOMAIN
+module IntegerDom : DOMAIN with type t = int
+module NaturalDom : DOMAIN with type t = int
+module CharDom : DOMAIN  with type t = char
+module BooleanDom : DOMAIN with type t = bool
+module StringDom : DOMAIN with type t = string
+module FloatDom : DOMAIN with type t = float
 
-module Pair (D1 : DOMAIN) (D2 : DOMAIN) : DOMAIN
-module Triplet (D1 : DOMAIN) (D2 : DOMAIN) (D3 : DOMAIN) : DOMAIN
+module DomainPair (D1 : DOMAIN) (D2 : DOMAIN) : DOMAIN with type t = D1.t * D2.t
+module DomainTriplet (D1 : DOMAIN) (D2 : DOMAIN) (D3 : DOMAIN) : DOMAIN
+       with type t = D1.t * D2.t * D3.t
 
-module List (D : DOMAIN) : DOMAIN
-module Array (D : DOMAIN) : DOMAIN
+module DomainList (D : DOMAIN) : DOMAIN with type t = D.t list
+module DomainArray (D : DOMAIN) : DOMAIN with type t = D.t array
 
-module DisjointUnion (D1 : DOMAIN) (D2 : DOMAIN) : DOMAIN
-module Union (D1 : DOMAIN) (D2 : DOMAIN with type t = D1.t) : DOMAIN
+type ('a, 'b) disjoint_union = Left of 'a
+                             | Right of 'b
+
+module DomainDisjointUnion (D1 : DOMAIN) (D2 : DOMAIN) : DOMAIN
+       with type t = (D1.t, D2.t) disjoint_union
+module DomainUnion (D1 : DOMAIN) (D2 : DOMAIN with type t = D1.t) : DOMAIN
+       with type t = D1.t
 
 module SubDomain (D : DOMAIN) (P : PREDICATE with type D.t = D.t) : DOMAIN
+       with type t = D.t

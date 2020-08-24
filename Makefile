@@ -1,4 +1,4 @@
-TARGETS = bytecode native native-profile
+TARGETS = bytecode native bytecode-profile
 
 .PHONY : all
 

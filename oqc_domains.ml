@@ -1,8 +1,6 @@
 open Oqc
 
-module GString = String
-       
-module Integer =
+module IntegerDom =
   struct
     type t = int
 
@@ -12,8 +10,8 @@ module Integer =
 
     let description = "ℤ"
   end
-    
-module Natural =
+
+module NaturalDom =
   struct
     type t = int
 
@@ -24,7 +22,7 @@ module Natural =
     let description = "ℕ"
   end
 
-module Char =
+module CharDom =
   struct
     type t = char
 
@@ -35,7 +33,7 @@ module Char =
     let description = "Char"
   end
 
-module Boolean =
+module BooleanDom =
   struct
     type t = bool
 
@@ -45,8 +43,8 @@ module Boolean =
 
     let description = "Boolean"
   end
-    
-module String =
+
+module StringDom =
   struct
     type t = string
 
@@ -54,11 +52,11 @@ module String =
       String.init (Random.int max_size) (fun _ -> char_of_int (Random.int 256))
 
     let to_string s = String.escaped s
-                  
+
     let description = "String"
   end
-                  
-module Float =
+
+module FloatDom =
   struct
     type t = float
 
@@ -70,8 +68,8 @@ module Float =
 
     let description = "ℝ"
   end
-              
-module Pair (D1 : DOMAIN) (D2 : DOMAIN) =
+
+module DomainPair (D1 : DOMAIN) (D2 : DOMAIN) =
   struct
     type t = D1.t * D2.t
 
@@ -82,7 +80,7 @@ module Pair (D1 : DOMAIN) (D2 : DOMAIN) =
     let description = D1.description ^ " × " ^ D2.description
   end
 
-module Triplet (D1 : DOMAIN) (D2 : DOMAIN) (D3 : DOMAIN) =
+module DomainTriplet (D1 : DOMAIN) (D2 : DOMAIN) (D3 : DOMAIN) =
   struct
     type t = D1.t * D2.t * D3.t
 
@@ -93,8 +91,8 @@ module Triplet (D1 : DOMAIN) (D2 : DOMAIN) (D3 : DOMAIN) =
     let description = D1.description ^ " × " ^ D2.description ^ " × " ^ D3.description
   end
 
-  
-module List (D : DOMAIN) =
+
+module DomainList (D : DOMAIN) =
   struct
     type t = D.t list
 
@@ -106,12 +104,12 @@ module List (D : DOMAIN) =
       in
       generate l []
 
-    let to_string l = "[" ^ GString.concat ", " (List.map D.to_string l) ^ "]"
+    let to_string l = "[" ^ String.concat ", " (List.map D.to_string l) ^ "]"
 
     let description = "List of " ^ D.description
   end
-                 
-module Array (D : DOMAIN) =
+
+module DomainArray (D : DOMAIN) =
   struct
     type t = D.t array
 
@@ -119,15 +117,17 @@ module Array (D : DOMAIN) =
       let l = Random.int max_size in
       Array.init l  (fun _ -> D.arbitrary (max_size / l))
 
-    let to_string a = "{" ^ GString.concat ", " (Array.to_list (Array.map D.to_string a)) ^ "}"
-                  
+    let to_string a = "{" ^ String.concat ", " (Array.to_list (Array.map D.to_string a)) ^ "}"
+
     let description = "Array of " ^ D.description
   end
-               
-module DisjointUnion (D1 : DOMAIN) (D2 : DOMAIN) =
+
+type ('a, 'b) disjoint_union = Left of 'a
+                             | Right of 'b
+
+module DomainDisjointUnion (D1 : DOMAIN) (D2 : DOMAIN) =
   struct
-    type t = Left of D1.t
-           | Right of D2.t
+    type t = (D1.t, D2.t) disjoint_union
 
     let arbitrary size =
       if Random.bool () then Left (D1.arbitrary size) else Right (D2.arbitrary size)
@@ -139,9 +139,9 @@ module DisjointUnion (D1 : DOMAIN) (D2 : DOMAIN) =
 
     let description = D1.description ^ " ⊔ " ^ D2.description
   end
-                              
-                        
-module Union (D1 : DOMAIN) (D2 : DOMAIN with type t = D1.t) =
+
+
+module DomainUnion (D1 : DOMAIN) (D2 : DOMAIN with type t = D1.t) =
   struct
     type t = D1.t
 
@@ -158,7 +158,7 @@ module SubDomain (D : DOMAIN) (P : PREDICATE with type D.t = D.t) =
     type t = D.t
 
     let description = "{ x ∈ " ^ D.description ^ " | " ^ P.description "x" ^ "}"
-               
+
     let arbitrary size =
       let rec attempt n =
         if n >= !max_attempts then
@@ -173,5 +173,3 @@ module SubDomain (D : DOMAIN) (P : PREDICATE with type D.t = D.t) =
     let to_string = D.to_string
 
   end
-
-                                                                             
