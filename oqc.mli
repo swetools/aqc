@@ -3,50 +3,63 @@ type outcome = Pass
             | Skip of string
             | XFail of string
 
-exception Bailout of string
-exception Exhausted of int * string
-
 module type DOMAIN =
   sig
     type t
 
-    val arbitrary : int -> t
-    val to_string : t -> string
-    val description : string
+    val arbitrary : int -> t option
+    val to_descr : t -> Oqc_descr.t
+    val description : Oqc_descr.t
   end
 
-module type PROPOSITION =
-  sig
-    val check : unit -> outcome
-    val description : string
-  end
-
-module type PREDICATE =
+module type PROPERTY =
   sig
     module D : DOMAIN
 
     val predicate : D.t -> outcome
-    val description : string -> string
+    val description : Oqc_descr.t -> Oqc_descr.t
   end
 
-module type RELATION =
+module type ATOMIC_PROPERTY = PROPERTY with type D.t = unit
+
+module type OPERATION =
   sig
-    module D1 : DOMAIN
-    module D2 : DOMAIN
+    type src
+    type dst
 
-    val relation : D1.t -> D2.t -> outcome
-    val description : string -> string -> string
+    val f : src -> dst
+
+    val description : Oqc_descr.t -> Oqc_descr.t
   end
 
-module ExpectFailure (P : PROPOSITION) : PROPOSITION
+module EmptyDomain : DOMAIN
 
-module ExpectSkipped (P : PROPOSITION) : PROPOSITION
+module UnitDomain : DOMAIN with type t = unit
 
-module Required (P : PROPOSITION) : PROPOSITION
+module AlwaysPass : ATOMIC_PROPERTY
 
-val ensure : ?message: string -> bool -> outcome
+module AlwaysFail : ATOMIC_PROPERTY
 
-val register : (module PROPOSITION) -> unit
+module AlwaysSkip : ATOMIC_PROPERTY
+
+module ExpectFailure (P : PROPERTY) : PROPERTY with module D = P.D
+
+module ExpectSkipped (P : PROPERTY) : PROPERTY  with module D = P.D
+
+module Required (P : PROPERTY) : PROPERTY  with module D = P.D
+
+module ConstPred (D : DOMAIN) (P : ATOMIC_PROPERTY) : PROPERTY
+       with module D = D
+
+module Restriction (D : DOMAIN) (P : PROPERTY with type D.t = D.t) : PROPERTY
+       with module D = D
+
+module Identity (D1 : DOMAIN) (D2 : DOMAIN with type t = D1.t) : OPERATION
+       with type src = D1.t and type dst = D2.t
+
+val ensure : string -> bool -> outcome
+
+val register : (module ATOMIC_PROPERTY) -> unit
 
 val do_log : string -> unit
 
@@ -61,3 +74,7 @@ val max_attempts : int ref
 val sample_size : int ref
 
 val verbose : bool ref
+
+val expect_failures : bool ref
+
+val fatal_failures : bool ref

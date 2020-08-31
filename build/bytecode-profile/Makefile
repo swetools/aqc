@@ -1,5 +1,5 @@
 SRCDIR = ../..
-OCAMLC = ocamlcp -P a 
+OCAMLC = ocamlcp -g -P a 
 OCAML.O = cmo
 OCAML.A = cma
 VPATH = $(SRCDIR)
@@ -36,4 +36,7 @@ coverage.txt : $(patsubst %.ml,%.cov,$(filter %.ml,$(SOURCES)))
 ocamlprof.dump : $(APPS)
 	for i in $(APPS); do		 \
 		$(PROVE) ./$$i; \
+		$(PROVE) ./$$i :: -verbose ; \
+		$(PROVE) ./$$i :: -dont-expect-failures || true; \
+		$(PROVE) ./$$i :: -fatal-failures -dont-expect-failures || true; \
 	done

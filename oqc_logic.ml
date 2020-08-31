@@ -36,139 +36,51 @@ let (<==>) f1 f2 =
   | Fail _, Pass | XFail _, Pass | Pass, Fail _ | Pass, XFail _ ->
      Fail "broken equivalence"
 
-let parens s = "(" ^ s ^ ")"
-
-module NotProp (P : PROPOSITION) =
-  struct
-    let check =  !! P.check
-
-    let description = parens ("¬" ^ P.description)
-  end
-
-module AndProp (P1 : PROPOSITION) (P2 : PROPOSITION) =
-  struct
-    let check = P1.check &&& P2.check
-
-    let description = parens (P1.description ^ " ∧ " ^ P2.description)
-  end
-
-module OrProp (P1 : PROPOSITION) (P2 : PROPOSITION) =
-  struct
-    let check = P1.check ||| P2.check
-
-    let description = parens (P1.description ^ " ∨ " ^ P2.description)
-  end
-
-module CondProp (P1 : PROPOSITION) (P2 : PROPOSITION) =
-  struct
-    let check = P1.check ==> P2.check
-
-    let description = parens (P1.description ^ " → " ^ P2.description)
-  end
-
-module EquivProp (P1 : PROPOSITION) (P2 : PROPOSITION) =
-  struct
-    let check = P1.check <==> P2.check
-
-    let description = parens (P1.description ^ " ↔ " ^ P2.description)
-  end
-
-module NotPred (P : PREDICATE) =
+module NotProp (P : PROPERTY) =
   struct
     module D = P.D
 
-    let predicate = !! P.predicate
+    let predicate =  !! P.predicate
 
-    let description arg = parens ("¬" ^ P.description arg)
+    let description arg =  Oqc_descr.prefix (100, "¬") (P.description arg)
   end
 
-module AndPred (P1 : PREDICATE) (P2 : PREDICATE with type D.t = P1.D.t) =
+module AndProp (P1 : PROPERTY) (P2 : PROPERTY with module D = P1.D) =
   struct
     module D = P1.D
 
     let predicate = P1.predicate &&& P2.predicate
 
-    let description arg = parens (P1.description arg ^ " ∧ " ^ P2.description arg)
+    let description arg = Oqc_descr.infix (P1.description arg)
+                            (true, 200, " ∧ ") (P2.description arg)
   end
 
-module OrPred (P1 : PREDICATE) (P2 : PREDICATE with type D.t = P1.D.t) =
+module OrProp (P1 : PROPERTY) (P2 : PROPERTY with module D = P1.D) =
   struct
     module D = P1.D
 
     let predicate = P1.predicate ||| P2.predicate
 
-    let description arg = parens (P1.description arg ^ " ∨ " ^ P2.description arg)
+    let description arg = Oqc_descr.infix (P1.description arg)
+                            (true, 300, " ∨ ") (P2.description arg)
   end
 
-
-module CondPred (P1 : PREDICATE) (P2 : PREDICATE with type D.t = P1.D.t) =
+module CondProp (P1 : PROPERTY) (P2 : PROPERTY with module D = P1.D) =
   struct
     module D = P1.D
 
     let predicate = P1.predicate ==> P2.predicate
 
-    let description arg = parens (P1.description arg ^ " → " ^ P2.description arg)
+    let description arg = Oqc_descr.infix (P1.description arg)
+                            (false, 400, " → ") (P2.description arg)
   end
 
-module EquivPred (P1 : PREDICATE) (P2 : PREDICATE with type D.t = P1.D.t) =
+module EquivProp (P1 : PROPERTY) (P2 : PROPERTY with module D = P1.D) =
   struct
     module D = P1.D
 
     let predicate = P1.predicate <==> P2.predicate
 
-    let description arg = parens (P1.description arg ^ " ↔ " ^ P2.description arg)
-  end
-
-let uncurry f = fun (x, y) -> f x y
-let curry f = fun x y -> f (x, y)
-
-module NotRel (R : RELATION) =
-  struct
-    module D1 = R.D1
-    module D2 = R.D2
-
-    let relation = curry (!! (uncurry R.relation))
-
-    let description arg1 arg2 = parens ("¬" ^ R.description arg1 arg2)
-  end
-
-
-module AndRel (R1 : RELATION) (R2 : RELATION with type D1.t = R1.D1.t and type D2.t = R1.D2.t) =
-  struct
-    module D1 = R1.D1
-    module D2 = R1.D2
-
-    let relation = curry (uncurry R1.relation &&& uncurry R2.relation)
-
-    let description arg1 arg2 = parens (R1.description arg1 arg2 ^ " ∧ " ^ R2.description arg1 arg2)
-  end
-
-module OrRel (R1 : RELATION) (R2 : RELATION with type D1.t = R1.D1.t and type D2.t = R1.D2.t) =
-  struct
-    module D1 = R1.D1
-    module D2 = R1.D2
-
-    let relation = curry (uncurry R1.relation ||| uncurry R2.relation)
-
-    let description arg1 arg2 = parens (R1.description arg1 arg2 ^ " ∨ " ^ R2.description arg1 arg2)
-  end
-
-module CondRel (R1 : RELATION) (R2 : RELATION with type D1.t = R1.D1.t and type D2.t = R1.D2.t) =
-  struct
-    module D1 = R1.D1
-    module D2 = R1.D2
-
-    let relation = curry (uncurry R1.relation ==> uncurry R2.relation)
-
-    let description arg1 arg2 = parens (R1.description arg1 arg2 ^ " → " ^ R2.description arg1 arg2)
-  end
-
-module EquivRel (R1 : RELATION) (R2 : RELATION with type D1.t = R1.D1.t and type D2.t = R1.D2.t) =
-  struct
-    module D1 = R1.D1
-    module D2 = R1.D2
-
-    let relation = curry (uncurry R1.relation <==> uncurry R2.relation)
-
-    let description arg1 arg2 = parens (R1.description arg1 arg2 ^ " ↔ " ^ R2.description arg1 arg2)
+    let description arg = Oqc_descr.infix (P1.description arg)
+                            (false, 500, " ↔ ") (P2.description arg)
   end

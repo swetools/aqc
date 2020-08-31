@@ -1,124 +1,101 @@
 open Oqc
 
-let exhausted n = Skip ("Arguments exhausted after " ^ string_of_int n ^ " attempts")
-
-let to_string_stub _ = "???"
-
-let for_all ?sample_size: (size = !sample_size)
-      ?to_string: (to_string = to_string_stub)
-      gen check =
-  let rec iterate n m =
-    if n >= !min_iterations then Pass
+let search_solution ~to_string ~min_distinct ~max_distinct
+      ~max_failures ~generator ~predicate =
+  let rec iterate n m solutions failures =
+    if List.length failures > max_failures then
+      Fail (String.concat ", " (List.map snd failures))
+    else if List.length solutions > max_distinct then
+      Fail (Printf.sprintf "%d solutions found, expected at most %d"
+              (List.length solutions) max_distinct)
     else if m >= !max_attempts then
-      exhausted m
-    else let v = gen size in
-         do_verbose_log ("trying " ^ to_string v);
-         match check v with
-         | Pass -> iterate (succ n) 0
-         | Skip _ -> iterate n (succ m)
-         | (Fail _ | XFail _) as r -> r
-  in
-  try
-    iterate 0 0
-  with
-  | Exhausted (n, _) -> exhausted n
-
-let for_some ?sample_size: (size = !sample_size)
-      ?to_string: (to_string = to_string_stub)
-      gen check =
-  let rec iterate n m =
-    if n >= !min_iterations then
-      Fail ("No solutions after " ^ string_of_int n ^ " guesses")
-    else if m >= !max_attempts then
-      exhausted m
-    else let v = gen size in
-         do_verbose_log ("trying " ^ to_string v);
-         match check v with
-         | Pass -> do_log ("found solution: " ^ to_string v);
-                   Pass
-         | Skip _ -> iterate n (succ m)
-         | Fail _ | XFail _ ->iterate (succ n) 0
-  in
-  try
-    iterate 0 0
-  with
-  | Exhausted (n, _) -> exhausted n
-
-let for_one ?sample_size: (size = !sample_size)
-      ?to_string: (to_string = to_string_stub)
-      gen check =
-  let rec iterate found n m =
-    if n >= !min_iterations then
-      match found with
-      | None -> Fail ("No solutions after " ^ string_of_int n ^ " guesses")
+      Skip (Printf.sprintf "Arguments exhausted after %d tries" !max_attempts)
+    else if n >= !min_iterations then
+      (if List.length solutions < min_distinct then
+         Skip (Printf.sprintf "%d solutions found, expected at least %d"
+                 (List.length solutions) min_distinct)
+       else
+         (List.iter (fun v -> do_verbose_log
+                                (Printf.sprintf "found %s" (to_string v)))
+            solutions;
+          Pass))
+    else
+      match generator !sample_size with
+      | None -> iterate n (succ m) solutions failures
       | Some v ->
-         do_log ("found solution: " ^ to_string v);
-         Pass
-    else if m >= !max_attempts then
-      exhausted m
-    else let v = gen size in
-         do_verbose_log ("trying " ^ to_string v);
-         match check v with
-         | Pass ->
-            (match found with
-             | Some v0 when v0 <> v ->
-                Fail ("duplicate solutions: " ^
-                        to_string v ^ " and " ^
-                          to_string v0)
-             | None | Some _ ->
-                iterate (Some v) (succ n) 0)
-         | Skip _ -> iterate found n (succ m)
-         | Fail _ | XFail _ ->iterate found (succ n) 0
+         match predicate v with
+         | Pass -> (do_verbose_log
+                     (Printf.sprintf "---> %s" (to_string v));
+                      iterate (succ n) 0
+                     (if List.mem v solutions then solutions else v :: solutions)
+                     failures)
+         | Skip _ -> iterate n (succ m) solutions failures
+         | Fail msg | XFail msg ->
+            iterate (succ n) 0 solutions ((v, msg) :: failures)
   in
-  try
-    iterate None 0 0
-  with
-  | Exhausted (n, _) -> exhausted n
+  iterate 0 0 [] []
 
-module Forall (P : PREDICATE) =
+let quantified q dom df =
+    let freshvar = Oqc_descr.variable ("x" ^
+                                         string_of_int
+                                           (List.length
+                                              (Oqc_descr.variables (df (Oqc_descr.atom "")))))
+    in
+    let qd = Oqc_descr.prefix (100, q)
+               (Oqc_descr.infix freshvar (false, 50, " ∈ ") dom)
+    in
+    Oqc_descr.infix qd (false, 1000, ". ") (df freshvar)
+
+module Forall (P : PROPERTY) =
   struct
-    let check () = for_all P.D.arbitrary P.predicate
+    module D = UnitDomain
 
-    let description = "∀ x : " ^ P.D.description ^ ": " ^ P.description "x"
+    let predicate () = search_solution
+                         ~to_string: (fun x -> Oqc_descr.to_string (P.D.to_descr x))
+                         ~min_distinct: 0
+                         ~max_distinct: max_int ~max_failures: 0
+                         ~generator: P.D.arbitrary ~predicate: P.predicate
+
+    let description _ = quantified "∀ " P.D.description P.description
+
   end
 
-module Exists (P : PREDICATE) =
+module Exists (P : PROPERTY) =
   struct
-    let check () = for_some ~to_string: P.D.to_string P.D.arbitrary P.predicate
+    module D = UnitDomain
 
-    let description = "∃ x :  " ^ P.D.description ^ ": " ^ P.description "x"
+    let predicate () = search_solution
+                         ~to_string: (fun x -> Oqc_descr.to_string (P.D.to_descr x))
+                         ~min_distinct: 1
+                         ~max_distinct: max_int ~max_failures: max_int
+                         ~generator: P.D.arbitrary ~predicate: P.predicate
+
+
+    let description _ = quantified "∃ " P.D.description P.description
   end
 
-module ExistsUnique (P : PREDICATE)  =
+module ExistsUnique (P : PROPERTY)  =
   struct
-    let check () = for_one ~to_string: P.D.to_string P.D.arbitrary P.predicate
+    module D = UnitDomain
 
-    let description = "∃! x :  " ^ P.D.description ^ ": " ^ P.description "x"
+    let predicate () = search_solution
+                         ~to_string: (fun x -> Oqc_descr.to_string (P.D.to_descr x))
+                         ~min_distinct: 1
+                         ~max_distinct: 1 ~max_failures: max_int
+                         ~generator: P.D.arbitrary ~predicate: P.predicate
+
+    let description _ = quantified "∃! " P.D.description P.description
   end
 
-module Forall2 (R : RELATION) =
+module ExistDistinct (P : PROPERTY)  =
   struct
-    module D = R.D1
+    module D = UnitDomain
 
-    let predicate v = for_all R.D2.arbitrary (R.relation v)
+    let predicate () = search_solution
+                         ~to_string: (fun x -> Oqc_descr.to_string (P.D.to_descr x))
+                         ~min_distinct: 2
+                         ~max_distinct: max_int ~max_failures: max_int
+                         ~generator: P.D.arbitrary ~predicate: P.predicate
 
-    let description arg = "∀ y : " ^ R.D1.description ^ ": " ^ R.description arg "y"
-  end
-
-module Exists2 (R : RELATION) =
-  struct
-    module D = R.D1
-
-    let predicate v = for_some ~to_string: R.D2.to_string R.D2.arbitrary (R.relation v)
-
-    let description arg = "∃ y : " ^ R.D1.description ^ ": " ^ R.description arg "y"
-  end
-
-module ExistsUnique2 (R : RELATION) =
-  struct
-    module D = R.D1
-
-    let predicate v = for_one ~to_string: R.D2.to_string R.D2.arbitrary (R.relation v)
-
-    let description arg = "∃! y : " ^ R.D1.description ^ ": " ^ R.description arg "y"
+    let description _ = quantified "∃₂ " P.D.description P.description
   end

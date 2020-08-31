@@ -1,16 +1,13 @@
 open Oqc
 
-val for_all : ?sample_size: int -> ?to_string: ('a -> string) ->
-              (int -> 'a) -> ('a -> outcome) -> outcome
-val for_some : ?sample_size: int -> ?to_string: ('a -> string) ->
-               (int -> 'a) -> ('a -> outcome) -> outcome
-val for_one : ?sample_size: int -> ?to_string: ('a -> string) ->
-              (int -> 'a) -> ('a -> outcome) -> outcome
+val search_solution : to_string: ('a -> string) ->
+                      min_distinct: int -> max_distinct: int ->
+                      max_failures: int ->
+                      generator: (int -> 'a option) ->
+                      predicate: ('a -> outcome) ->
+                      outcome
 
-module Forall (P : PREDICATE) : PROPOSITION
-module Exists (P : PREDICATE) : PROPOSITION
-module ExistsUnique (P : PREDICATE) : PROPOSITION
-
-module Forall2 (R : RELATION) : PREDICATE
-module Exists2 (R : RELATION) : PREDICATE
-module ExistsUnique2 (R : RELATION) : PREDICATE
+module Forall (P : PROPERTY) : ATOMIC_PROPERTY
+module Exists (P : PROPERTY) : ATOMIC_PROPERTY
+module ExistsUnique (P : PROPERTY) : ATOMIC_PROPERTY
+module ExistDistinct (P : PROPERTY) : ATOMIC_PROPERTY

@@ -5,10 +5,10 @@ SED = sed
 LIBRARIES = oqc.$(OCAML.A)
 APPS = selftest
 
-SOURCES = oqc.mli oqc_tap.mli oqc_logic.mli oqc_iterate.mli \
+SOURCES = oqc.mli oqc_descr.mli oqc_tap.mli oqc_logic.mli oqc_iterate.mli \
 		  oqc_domains.mli
 
-oqc_SOURCES = oqc_tap.ml oqc.ml oqc_logic.ml oqc_iterate.ml \
+oqc_SOURCES = oqc_tap.ml oqc_descr.ml oqc.ml oqc_logic.ml oqc_iterate.ml \
 			  oqc_domains.ml
 
 selftest_SOURCES = selftest.ml
