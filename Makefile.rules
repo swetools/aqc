@@ -6,10 +6,10 @@ LIBRARIES = oqc.$(OCAML.A)
 APPS = selftest
 
 SOURCES = oqc.mli oqc_descr.mli oqc_tap.mli oqc_logic.mli oqc_iterate.mli \
-		  oqc_domains.mli
+		  oqc_domains.mli oqc_rel.mli
 
 oqc_SOURCES = oqc_tap.ml oqc_descr.ml oqc.ml oqc_logic.ml oqc_iterate.ml \
-			  oqc_domains.ml
+			  oqc_domains.ml oqc_rel.ml
 
 selftest_SOURCES = selftest.ml
 

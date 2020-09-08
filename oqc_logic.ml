@@ -2,39 +2,44 @@ open Oqc
 
 let (!!) f =
   fun v ->
-        match f v with
-        | Pass -> Fail "unexpected success"
-        | Fail _ | XFail _ -> Pass
-        | Skip msg -> Skip msg
+  let r = f v in
+  match r.status with
+  | Pass -> { r with status = Fail; expect = Unexpected }
+  | Fail -> { r with status = Pass }
+  | Undefined -> r
 
 let (&&&) f1 f2 =
   fun v ->
-  match f1 v with
+  let r = f1 v in
+  match r.status with
   | Pass -> f2 v
-  | Skip msg -> Skip msg
-  | Fail msg -> Fail msg
-  | XFail msg -> XFail msg
+  | Fail | Undefined -> r
 
 let (|||) f1 f2 =
   fun v ->
-  match f1 v with
-  | Skip _ | Fail _ | XFail _ -> f2 v
-  | Pass -> Pass
+  let r = f1 v in
+  match r.status with
+  | Pass -> r
+  | Fail | Undefined -> f2 v
 
 let (==>) f1 f2 =
   fun v ->
-  match f1 v with
-  | Fail msg | Skip msg | XFail msg -> Skip msg
+  let r = f1 v in
+  match r.status with
   | Pass -> f2 v
+  | Fail | Undefined -> { r with status = Undefined }
 
 let (<==>) f1 f2 =
   fun v ->
-  match f1 v, f2 v with
-  | Pass, Pass -> Pass
-  | (Fail _ | XFail _), (Fail _ | XFail _) -> Pass
-  | (Skip msg, _) | (_, Skip msg) -> Skip msg
-  | Fail _, Pass | XFail _, Pass | Pass, Fail _ | Pass, XFail _ ->
-     Fail "broken equivalence"
+  let r1 = f1 v and r2 = f2 v in
+  if r1.status <> r2.status then
+    { status = Fail; expect = Unexpected;
+      details = "not equivalent" }
+  else if r1.status = Undefined then
+    { status = Undefined; expect = Unexpected;
+      details = "undefined equivalence" }
+  else
+    { status = Pass; expect = Expected; details = "ok" }
 
 module NotProp (P : PROPERTY) =
   struct

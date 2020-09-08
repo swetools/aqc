@@ -1,14 +1,21 @@
-type outcome = Pass
-            | Fail of string
-            | Skip of string
-            | XFail of string
+type expectation = Expected
+                 | Unexpected
+
+type status = Pass
+            | Fail
+            | Undefined
+
+type outcome = { status:  status;
+                 expect:  expectation;
+                 details: string
+               }
 
 module type DOMAIN =
   sig
     type t
 
     val arbitrary : int -> t option
-    val to_descr : t -> Oqc_descr.t
+    val describe : t -> Oqc_descr.t
     val description : Oqc_descr.t
   end
 
@@ -40,11 +47,11 @@ module AlwaysPass : ATOMIC_PROPERTY
 
 module AlwaysFail : ATOMIC_PROPERTY
 
-module AlwaysSkip : ATOMIC_PROPERTY
+module AlwaysUndefined : ATOMIC_PROPERTY
 
 module ExpectFailure (P : PROPERTY) : PROPERTY with module D = P.D
 
-module ExpectSkipped (P : PROPERTY) : PROPERTY  with module D = P.D
+module ExpectUndefined (P : PROPERTY) : PROPERTY  with module D = P.D
 
 module Required (P : PROPERTY) : PROPERTY  with module D = P.D
 
@@ -75,6 +82,10 @@ val sample_size : int ref
 
 val verbose : bool ref
 
-val expect_failures : bool ref
+val fail_unexpected : bool ref
+
+val allow_expected_failures : bool ref
 
 val fatal_failures : bool ref
+
+val catch_exceptions : bool ref

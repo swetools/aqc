@@ -45,14 +45,7 @@ let wrap pfx v sfx = Circumfix (pfx, sfx, v)
 
 let infix arg1 (assoc, p, op) arg2 = Infix (assoc, p, op, arg1, arg2)
 
-let rec reinfix (assoc, p, op) x =
-  match x with
-  | Atom _ | Variable _ -> raise (Failure "cannot insert an infix op")
-  | Prefix (_, _, y) | Suffix (_, _, y) | Circumfix (_, _, y) ->
-     reinfix (assoc, p, op) y
-  | Infix (_, _, _, x, y) -> Infix (assoc, p, op, x, y)
-
-let variables x =
+let freshvar x =
   let rec collect x vars =
     match x with
     | Atom _ -> vars
@@ -63,4 +56,12 @@ let variables x =
     | Infix (_, _, _, arg1, arg2) ->
        collect arg2 (collect arg1 vars)
   in
-  collect x []
+  let rec nextvar n vars =
+    let v = "x" ^ string_of_int n in
+    if List.mem v vars then
+      nextvar (succ n) vars
+    else
+      Variable v
+  in
+  let vars = collect x [] in
+  nextvar (List.length vars) vars

@@ -37,6 +37,7 @@ ocamlprof.dump : $(APPS)
 	for i in $(APPS); do		 \
 		$(PROVE) ./$$i; \
 		$(PROVE) ./$$i :: -verbose ; \
-		$(PROVE) ./$$i :: -dont-expect-failures || true; \
-		$(PROVE) ./$$i :: -fatal-failures -dont-expect-failures || true; \
+		$(PROVE) ./$$i :: -fail-unexpected || true; \
+		$(PROVE) ./$$i :: -no-expected-failures; \
+		$(PROVE) ./$$i :: -fatal-failures -no-expected-failures || true; \
 	done

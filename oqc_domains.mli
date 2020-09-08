@@ -28,6 +28,6 @@ module DomainUnion (D1 : DOMAIN) (D2 : DOMAIN with type t = D1.t) : DOMAIN
 module SubDomain (D : DOMAIN) (P : PROPERTY with type D.t = D.t) : DOMAIN
        with type t = D.t
 
-module MapDomain (D1 : DOMAIN) (D2 : DOMAIN)
+module DomainImage (D1 : DOMAIN) (D2 : DOMAIN)
          (Op : OPERATION with type src = D1.t and type dst = D2.t) : DOMAIN
        with type t = D2.t

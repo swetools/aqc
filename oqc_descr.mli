@@ -14,6 +14,4 @@ val wrap : string -> t -> string -> t
 
 val infix : t -> bool * int * string -> t -> t
 
-val reinfix : bool * int * string -> t -> t
-
-val variables : t -> string list
+val freshvar : t -> t
